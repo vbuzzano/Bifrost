@@ -1,0 +1,109 @@
+; ~ Bifrost [PROGRAM_NAME]~ Installer Script
+; $VER: ~ Bifrost [PROGRAM_EXE_NAME]~ ~ 0.3 [PROGRAM_VERSION]~ (~ 20.07.2026 [PROGRAM_DATE]~)
+
+(complete 0)
+(set @app-name "~ Bifrost [PROGRAM_NAME]~")
+(set @default-dest "C:")
+
+(complete 3)
+; Welcome message
+(welcome "Welcome to the ~ Bifrost [PROGRAM_NAME]~ installer. ~ Bifrost [PROGRAM_NAME]~ lets your Amiga share the mouse and keyboard of a PC on the same network - no KVM switch needed. This installer will guide you through the required steps.")
+
+(complete 6)
+; ========================================
+; Step 1: Select destination for executable
+; ========================================
+
+(set #dest-cmd
+  (askdir
+    (prompt "Where do you want to install the ~ Bifrost [PROGRAM_EXE_NAME]~ executable?\n(usually your C: command directory)")
+    (help @askdir-help)
+    (default "C:")
+  )
+)
+
+(complete 15)
+; ========================================
+; Step 2: Copy executable
+; ========================================
+
+(copyfiles
+  (prompt "Copying ~ Bifrost [PROGRAM_EXE_NAME]~ executable...")
+  (help @copyfiles-help)
+  (protect "~ Bifrost [PROGRAM_EXE_NAME]~" "+e")
+  (confirm "expert")
+  (source "~ Bifrost [PROGRAM_EXE_NAME]~")
+  (dest #dest-cmd)
+  (choices "~ Bifrost [PROGRAM_EXE_NAME]~")
+  (infos)
+)
+
+(complete 40)
+; ========================================
+; Step 3: Select destination for guide
+; ========================================
+
+(set #dest-help
+  (askdir
+    (prompt "Where should the ~ Bifrost [PROGRAM_NAME]~.guide documentation be installed?\n(usually Help: or HELP:)")
+    (help @askdir-help)
+    (default "HELP:")
+  )
+)
+
+(complete 55)
+; ========================================
+; Step 4: Copy guide
+; ========================================
+
+(copyfiles
+  (prompt "Copying ~ Bifrost [PROGRAM_NAME]~.guide documentation...")
+  (help @copyfiles-help)
+  (confirm "expert")
+  (source "~ Bifrost [PROGRAM_NAME]~.guide")
+  (dest #dest-help)
+  (choices "~ Bifrost [PROGRAM_NAME]~.guide")
+  (infos)
+)
+
+(complete 80)
+; ========================================
+; Step 5: Optional User-Startup configuration
+; ========================================
+
+(set #startup-add
+  (askchoice
+    (prompt "Add ~ Bifrost [PROGRAM_EXE_NAME]~ to your User-Startup script?\n\nThis will make the daemon start automatically every time your Amiga boots. It will look for a PC running the Bifrost server on the same network - no configuration needed.\n\nYou can edit User-Startup later to pass an edge/corner argument (see the guide).")
+    (help @askchoice-help)
+    (choices
+      "Yes - Add to User-Startup"
+      "No - I'll start it manually"
+    )
+    (default 0)
+  )
+)
+
+; If user wants to add to startup
+(if (= #startup-add 0)
+(
+
+(complete 90)
+
+(startup "~ Bifrost [PROGRAM_EXE_NAME]~"
+  (prompt "Adding ~ Bifrost [PROGRAM_EXE_NAME]~ to User-Startup...")
+  (help @startup-help)
+  (command "C:~ Bifrost [PROGRAM_EXE_NAME]~ >NIL:\n")
+)
+
+)
+) ; End if startup-add
+
+; ========================================
+; Installation complete
+; ========================================
+(complete 100)
+; youpi ^^
+(if (= #startup-add 0)
+  (exit "Installation Complete!\n~ Bifrost [PROGRAM_NAME]~ has been installed.\n\nReboot your Amiga, then start the Bifrost server on your PC - the daemon will find it automatically.")
+  (exit "Installation Complete!\n~ Bifrost [PROGRAM_NAME]~ has been installed.\n\nTo start the daemon now, run:\n  C:~ Bifrost [PROGRAM_EXE_NAME]~")
+)

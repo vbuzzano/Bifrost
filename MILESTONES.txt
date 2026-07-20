@@ -1,0 +1,36 @@
+Bifrost - Milestones
+===================
+
+MILESTONE: Edge Working - 20.07.2026
+d88a62dd2453d68befac9ce37f75de414720090b
+
+MILESTONE: Mouse fluide - 18.07.2026
+b8250cf83bcb043a3c486c5e0d2043e399eab882
+
+MILESTONE: Mouse fluide - 17.07.2026
+--------------------------------------
+Tag     : mouse-smooth-v1
+Commit  : 961c417  (TCP_NODELAY fix - le point de stabilite)
+HEAD    : 4e80a06  (tous les fichiers server commites)
+
+Etat    : souris fluide sur Amiga, clavier fonctionnel
+          toggle PC/Amiga par Scroll Lock ou coin haut-droit
+
+Stack technique validee :
+  - Courbe piecewise lineaire : 1->1, 2->2, 3->2.5, 4->3 (CURVE_LINEAR=2, CURVE_RATIO=0.5)
+  - Float sub-pixel accumulator : aucune perte entre les flushes
+  - MOUSE_HZ=100 (flush toutes les 10ms)
+  - TCP_NODELAY : chaque paquet 8 bytes part immediatement (pas de Nagle batching)
+  - suppress=False souris + suppress=True clavier en mode Amiga
+  - Tracking position reelle (_last=x,y, pas de warp)
+
+Config cle (server/capture.py) :
+  CURVE_LINEAR = 2.0
+  CURVE_RATIO  = 0.5
+  MOUSE_HZ     = 100
+  AMIGA_W      = 640
+  AMIGA_H      = 512
+
+Pour revenir a ce point :
+  git checkout 961c417
+

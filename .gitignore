@@ -1,0 +1,138 @@
+#############################################################################
+# SagaMouse - .gitignore
+# Project: Vampire V4 Sagga Mouse Wheel & Extra Buttons Driver
+# Compiler: VBCC (AmigaOS cross-compiler)
+#############################################################################
+
+
+#############################################################################
+# Build Outputs (VBCC)
+#############################################################################
+build
+*.o
+*.asm
+*.s
+*.exe
+*.elf
+*.map
+*.sym
+
+#############################################################################
+# Dist Outputs (VBCC)
+#############################################################################
+dist/*
+
+
+#############################################################################
+# AmigaOS specific
+#############################################################################
+#*.info          # Icon files (si générés, à ajuster selon besoin)
+.DS_Store       # macOS (si cross-compile depuis Mac)
+
+#############################################################################
+# Editor / IDE
+#############################################################################
+# Visual Studio Code
+.vscode/*
+!.vscode/tasks.json       # Garder les tasks de build
+!.vscode/launch.json      # Garder la config debug
+!.vscode/settings.json    # Garder les settings projet
+*.code-workspace
+
+# Autres éditeurs
+*.swp
+*.swo
+*~
+.idea/
+*.sublime-*
+
+.git*
+!.gitignore
+
+#############################################################################
+# OS
+#############################################################################
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.directory
+
+#############################################################################
+# Temporary / Cache
+#############################################################################
+*.tmp
+*.bak
+*.cache
+*.log
+
+*_
+_*
+_*_
+*copy.*
+docs/superpowers/*
+
+# VBCC temporaires
+vbcc.config.tmp
+vc.err
+
+#temp sources
+*.c_
+*.h_
+*.c~
+*.h~
+
+
+
+#############################################################################
+# Dependencies (if you use external libs)
+#############################################################################
+lib/*.a          # Bibliothèques statiques compilées
+NDK_*/           # SDK Amiga (si copié localement)
+
+#############################################################################
+# Distribution / Packaging
+#############################################################################
+dist/
+*.lha            # Archives AmigaOS
+*.lzx
+*.zip
+
+#############################################################################
+# Debug / Profiling
+#############################################################################
+*.stackdump
+gmon.out
+core
+vgcore.*
+
+#############################################################################
+# Git
+#############################################################################
+*.orig
+*.rej
+
+# Dependencies (downloaded by setup.ps1)
+vendor/
+sdk/
+tools/
+
+# Setup internal directories
+.setup/cache/
+.setup/tools/
+.setup/state.json
+
+# Setup state and user config
+.env
+
+# Temp files
+*.bak
+*.tmp

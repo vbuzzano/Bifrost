@@ -1,0 +1,76 @@
+# ============================================================================
+# AmigaDevBox - User Configuration
+# ============================================================================
+# This file contains user-specific and project settings.
+# Customize as needed. Values here override .setup/config.psd1
+# ============================================================================
+
+@{
+    # ========================================================================
+    # Project Settings
+    # ========================================================================
+    Project = @{
+        Name        = "MyProgram"
+        Description = "Program Description"
+        Version     = "0.1.0"
+    }
+
+    # ========================================================================
+    # Cache Path Override (optional)
+    # ========================================================================
+    # Uncomment to use a custom cache directory for downloads
+    # Useful to share downloads between projects or use a faster drive
+    # ========================================================================
+    # CachePath = "D:/Downloads/amiga-cache"
+
+    # ========================================================================
+    # Custom Environment Variables (added to .env)
+    # ========================================================================
+    Envs = @{
+        # MY_VAR = "my_value"
+        # DEBUG_LEVEL = "2"
+    }
+
+    # ========================================================================
+    # Additional Packages - Add your custom packages here
+    # ========================================================================
+    # Format: TYPE:pattern:destination[:ENV_VAR]
+    # Types: SDK, SRC, INC, TOOL, LIB, FILE
+    #
+    # Examples:
+    # - "SDK:MySDK/*:sdk/mysdk:MYSDK_PATH"     → SDK with env var
+    # - "SRC:src/*:src"                        → Source files
+    # - "INC:include/*:include"                → Include files
+    # - "TOOL:bin/*:tools"                     → Tools/binaries
+    # - "LIB:libs/*.lib:lib"                   → Libraries
+    # - "FILE:readme.txt:docs"                 → Single file
+    # ========================================================================
+    Packages = @(
+        # Example package:
+        # @{
+        #     Name        = "MyLibrary"
+        #     Url         = "https://example.com/mylib.lha"
+        #     File        = "mylib.lha"
+        #     Description = "My custom library"
+        #     Archive     = "lha"           # zip, lha, 7z, tar.gz
+        #     Mode        = "auto"          # auto = install without asking
+        #     Extract     = @(
+        #         "LIB:mylib/*:vendor/mylib:MYLIB_PATH"
+        #     )
+        # }
+    )
+
+    # ========================================================================
+    # Build Settings
+    # ========================================================================
+    Build = @{
+        # Program name for the executable (defaults to Project.Name)
+        ProgramName = "MyProgram"
+        
+        # Default CPU target (m68000, m68020, m68040, m68080)
+        DefaultCPU  = "m68080"
+        
+        # Default FPU (empty, 68020, 68040, 68080)
+        DefaultFPU  = "68080"
+    }
+}

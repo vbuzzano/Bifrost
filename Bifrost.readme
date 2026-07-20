@@ -1,0 +1,161 @@
+Short:         Share a PC's mouse & keyboard with your Amiga over the LAN
+Author:        reddoc007@gmail.com (Vincent Buzzano)
+Uploader:      reddoc007@gmail.com (Vincent Buzzano)
+Type:          driver/input
+Version:       ~ 0.3 [PROGRAM_VERSION]~
+Architecture:  m68k-amigaos
+
+                                 ~ Bifrost [PROGRAM_NAME]~ v~ 0.3 [PROGRAM_VERSION]~
+
+-----------------------------------------------------------------------------
+
+                ~ Amiga Mouse and Keyboard Input Controller via PC (Windows/Mac/Linux) [PROGRAM_DESCRIPTION]~
+
+-----------------------------------------------------------------------------
+
+
+WHAT IS IT?
+
+
+~ Bifrost [PROGRAM_NAME]~ is a lightweight background daemon that lets your Amiga
+share the mouse and keyboard of a PC (Windows/Linux/Mac) on the same LAN -
+like a software KVM switch, but without the switch or the extra cables.
+
+A small server runs on the PC and captures the mouse/keyboard globally. The
+Amiga client finds it automatically via a UDP broadcast (no IP address to
+configure), connects over TCP, and injects the forwarded events directly
+into AmigaOS via input.device.
+
+Move the PC mouse to a configured screen edge and control is handed to the
+Amiga; move back the other way (or press Scroll Lock) and you're back on
+the PC. The cursor even reappears at the mirrored position on the other
+screen, regardless of the two screens' resolutions.
+
+== Note ==
+
+Requires a TCP/IP stack on the Amiga (AmiTCP, Roadshow, or ApolloOS
+networking) and Python 3 + pynput on the PC.
+
+-----------------------------------------------------------------------------
+
+
+COMPATIBILITY
+
+
+== Works On ==
+
+Any Amiga with a working TCP/IP stack providing bsdsocket.library:
+  - AmiTCP (classic AmigaOS 3.x)
+  - Roadshow
+  - ApolloOS networking stack
+
+No specific accelerator or chipset required - Bifrost talks to input.device
+and the network stack only.
+
+== Recommended OS ==
+
+AmigaOS 3.x or ApolloOS with Roadshow/AmiTCP. PC server: Windows
+recommended (hardware-accurate Raw Input mouse deltas); Linux/macOS
+supported on a best-effort basis via pynput.
+
+== Does NOT Work On ==
+
+Machines without any TCP/IP stack, or not reachable on the same LAN
+segment as the PC (discovery is a broadcast and does not cross routers).
+
+-----------------------------------------------------------------------------
+
+
+INSTALLATION
+
+
+~ Bifrost [PROGRAM_NAME]~ can be installed using the included Installer script or manually.
+
+
+== Method 1: Amiga Installer (Recommended) ==
+
+1. Download the ~ Bifrost [PROGRAM_NAME]~ release archive
+2. Extract to RAM: or any temporary location
+3. Double-click the `Install Bifrost` icon
+4. Follow the on-screen prompts
+5. Reboot when installation completes
+
+The Installer will copy `Bifrost` to `C:` and add it to your `S:User-Startup`
+automatically.
+
+
+== Method 2: Manual Installation ==
+
+1. Copy `Bifrost` to `C:` (or `SYS:C/`)
+2. Add to `S:User-Startup`:
+   ```
+   # BEGIN Bifrost
+   C:Bifrost >NIL:
+   # END Bifrost
+   ```
+4. Restart or run `Bifrost` manually
+
+-----------------------------------------------------------------------------
+
+
+VERSION HISTORY
+
+
+~ 0.3 [PROGRAM_VERSION]~ (~ 20.07.2026 [PROGRAM_DATE]~)
+
+Initial public release with full feature set:
+  - UDP broadcast discovery - no IP address to configure on the Amiga
+  - Full mouse (relative deltas, wheel, buttons) and keyboard forwarding
+  - Manual focus toggle (Scroll Lock) and emergency PC recovery (Pause)
+  - Edge/corner-triggered automatic focus switching (8 configurable
+    edges/corners), with push resistance to avoid accidental switches
+    and automatic suppression while dragging
+  - Cursor placement on entry: the cursor reappears at the position
+    mirroring where it exited the other screen, scaled correctly across
+    very different screen resolutions
+  - Automatic reconnection if the PC server restarts or the connection
+    drops
+
+-----------------------------------------------------------------------------
+
+SUPPORT
+
+
+Found a bug? Have a feature request? Open an issue on GitHub.
+
+For bug reports, feature requests, or questions:
+https://github.com/vbuzzano/Bifrost
+
+Special thanks to the Amiga community for the NewMouse protocol, and to
+the VBCC and pynput developers.
+
+Author: ~ Vincent Buzzano [PROGRAM_AUTHOR]~
+
+-----------------------------------------------------------------------------
+
+
+LICENSE
+
+
+MIT License
+
+Copyright (c) 2026 Vincent Buzzano
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+

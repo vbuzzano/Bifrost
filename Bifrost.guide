@@ -1,0 +1,419 @@
+@database Bifrost.guide
+@author "Vincent Buzzano"
+@$VER: ~ 0.3 [PROGRAM_VERSION]~
+
+@node main "Bifrost"
+@next basicusage
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+@{fg highlight}
+                          @{b}Bifrost v~ 0.3 [PROGRAM_VERSION]~@{ub}
+                    Mouse & Keyboard Sharing over the Network
+@{fg text}
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{fg highlight}Bifrost@{fg text} is a lightweight background daemon that lets your Amiga share
+the mouse and keyboard of a PC on the same LAN - no KVM switch, no extra
+cables, no swapping peripherals back and forth.
+
+A small server runs on the PC (Windows/Linux/Mac) and captures the mouse
+and keyboard globally. The Amiga client connects to it over TCP and
+injects the forwarded events directly into the AmigaOS input system via
+input.device, exactly as if a real mouse and keyboard were attached.
+
+@{b}Result:@{ub} move your PC mouse to the edge of the screen and control the
+Amiga instead - move back the other way and you're back on the PC.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}TABLE OF CONTENTS@{ub}
+
+  @{" Basic Usage          " link basicusage} - Commands, connecting, toggling focus
+  @{" Discovery            " link discovery} - How the Amiga finds the PC server
+  @{" Edge Switching       " link edgeswitching} - Switching focus by screen edge/corner
+  @{" Compatibility        " link compatibility} - Supported hardware/OS
+  @{" Troubleshooting      " link troubleshooting} - Common issues
+  @{" Technical Details    " link technical} - How it works
+  @{" License & Credits    " link license} - MIT License, author info
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@endnode
+
+@node basicusage "Basic Usage"
+@prev main
+@next discovery
+@toc main
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+@{fg highlight}
+                              @{b}BASIC USAGE@{ub}
+@{fg text}
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}On the PC@{ub}
+
+Start the Python server (from the @{b}server@{ub} directory of the Bifrost
+distribution):
+
+  python main.py
+
+The server immediately starts broadcasting on the LAN so any Amiga
+running Bifrost can find it (see @{" Discovery " link discovery}), and
+begins capturing the PC's mouse and keyboard in the background.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Command Line Syntax (Amiga)@{ub}
+
+  Bifrost                  - Connect, no edge switching (Scroll Lock/Pause only)
+  Bifrost <edge>           - Connect with an edge/corner switch trigger
+  Bifrost <port>           - Connect on a non-default TCP port
+  Bifrost <edge> <port>    - Both, in any order
+
+Tokens are recognised automatically: a number is always the port, a
+recognised keyword is always the edge - so @{b}Bifrost LEFT 7890@{ub} and
+@{b}Bifrost 7890 LEFT@{ub} do exactly the same thing. See
+@{" Edge Switching " link edgeswitching} for the full list of edge/corner
+keywords.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Switching Focus Manually@{ub}
+
+Whether or not an edge argument was given, these always work while
+connected:
+
+  @{b}Scroll Lock@{ub}    - Toggle focus between PC and Amiga
+  @{b}Pause@{ub}          - Emergency: force focus back to the PC immediately
+  @{b}Ctrl+Pause@{ub}     - Kill the PC server entirely
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Reconnecting@{ub}
+
+If the PC server restarts, or the connection drops for any reason, the
+Amiga client automatically goes back to listening for the discovery
+broadcast and reconnects on its own - no need to relaunch Bifrost.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@endnode
+
+@node discovery "Discovery"
+@prev basicusage
+@next edgeswitching
+@toc main
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+@{fg highlight}
+                                @{b}DISCOVERY@{ub}
+@{fg text}
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+Bifrost never needs to be told the PC's IP address.
+
+@{b}How it works@{ub}
+
+  1. The PC server broadcasts a small UDP packet on the LAN every few
+     seconds, on the discovery port (TCP port + 1, e.g. 7891 if the
+     server's TCP port is 7890).
+
+  2. The Amiga client listens for that broadcast, replies directly to
+     the server, and then opens a normal TCP connection to it.
+
+  3. From that point on, mouse, keyboard, and focus-switch events flow
+     over that one TCP connection.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Requirements@{ub}
+
+  - The Amiga and the PC must be on the same LAN segment (discovery is a
+    broadcast, it does not cross routers/subnets).
+  - UDP broadcast must not be blocked by a firewall on either machine.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Multiple Amigas@{ub}
+
+Only one Amiga can be connected at a time in this version. If a second
+Amiga connects, it replaces the previous connection.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@endnode
+
+@node edgeswitching "Edge Switching"
+@prev discovery
+@next compatibility
+@toc main
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+@{fg highlight}
+                             @{b}EDGE SWITCHING@{ub}
+@{fg text}
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+Instead of always reaching for Scroll Lock, you can configure a screen
+edge or corner that switches focus automatically - like the classic
+"screen edge" behaviour of Synergy/Barrier between two computers.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Choosing an Edge@{ub}
+
+The argument you pass to Bifrost names the @{b}PC-side@{ub} edge that switches
+focus to the Amiga. The Amiga automatically uses the mirrored opposite
+edge/corner to switch back - if the PC trigger is the left edge, the
+Amiga's right edge switches back, matching two screens placed side by
+side.
+
+  @{b}TOP@{ub}           @{b}BOTTOM@{ub}         @{b}LEFT@{ub}           @{b}RIGHT@{ub}
+  @{b}TOPLEFT@{ub}       @{b}TOPRIGHT@{ub}       @{b}BOTTOMLEFT@{ub}     @{b}BOTTOMRIGHT@{ub}
+
+Example: @{b}Bifrost LEFT@{ub} - pushing the PC mouse against the left edge of
+the screen switches to the Amiga; pushing the Amiga mouse against the
+right edge of its screen switches back to the PC.
+
+Keywords are case-insensitive: @{b}left@{ub}, @{b}Left@{ub} and @{b}LEFT@{ub} are the same.
+
+With no edge argument, this whole mechanism is disabled - only Scroll
+Lock/Pause switch focus.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Avoiding Accidental Switches@{ub}
+
+A short resistance is built in so that merely grazing the edge, or
+dragging a window/icon across it, does not trigger a switch:
+
+  - The cursor must sit in the edge zone for a brief moment first.
+  - A deliberate push (not just a graze) is then required to fire.
+  - Switching is suppressed entirely while a mouse button is held down
+    (e.g. while dragging).
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Cursor Placement on Entry@{ub}
+
+When focus switches via an edge (not via Scroll Lock/Pause), the cursor
+appears on the new screen at the position that mirrors where it left
+the other screen - if you exit 40% of the way down the PC's left edge,
+you enter 40% of the way down the Amiga's right edge, regardless of how
+different the two screen resolutions are. For a corner, you always land
+exactly on the corresponding corner.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@endnode
+
+@node compatibility "Hardware & OS Compatibility"
+@prev edgeswitching
+@next troubleshooting
+@toc main
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+@{fg highlight}
+                       @{b}HARDWARE & OS COMPATIBILITY@{ub}
+@{fg text}
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Amiga side@{ub}
+
+Bifrost requires a TCP/IP stack providing bsdsocket.library:
+
+  - @{b}AmiTCP@{ub} (classic AmigaOS 3.x)
+  - @{b}Roadshow@{ub}
+  - @{b}ApolloOS@{ub} networking stack
+
+No specific accelerator or chipset is required - Bifrost talks to
+input.device and the network stack only, so it runs on any Amiga with a
+working TCP/IP stack and enough memory for the network buffers,
+including plain 68000 machines.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}PC side@{ub}
+
+  - @{b}Windows@{ub}: full support, including hardware-accurate mouse deltas via
+    the Raw Input API (recommended platform).
+  - @{b}Linux / macOS@{ub}: best-effort support via pynput; hardware Raw Input
+    deltas are not available on these platforms, so mouse feel may be
+    slightly less precise than on Windows.
+
+Requires Python 3 and the @{b}pynput@{ub} package on the PC.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Network@{ub}
+
+  - Amiga and PC must be on the same LAN (see
+    @{" Discovery " link discovery}).
+  - TCP port 7890 and UDP port 7891 by default (both configurable).
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@endnode
+
+@node troubleshooting "Troubleshooting"
+@prev compatibility
+@next technical
+@toc main
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+@{fg highlight}
+                           @{b}TROUBLESHOOTING@{ub}
+@{fg text}
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Amiga never connects@{ub}
+
+  1. Check the PC server console - it should print a line each time it
+     broadcasts discovery, and another when the Amiga connects.
+  2. Confirm both machines are on the same LAN segment (not different
+     Wi-Fi/VLAN subnets) - discovery is a broadcast, it will not cross
+     routers.
+  3. Check firewalls on the PC allow inbound UDP 7891 and TCP 7890 (or
+     whatever port you configured).
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Stuck on the Amiga, can't get back to the PC@{ub}
+
+  - Press @{b}Pause@{ub} - this forces focus back to the PC immediately,
+    independent of the network connection state.
+  - If the Amiga client itself is unresponsive, CTRL+C in its shell (or
+    reboot) stops it; the PC server automatically returns keyboard/mouse
+    control to the PC as soon as the connection drops.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Edge switching fires by accident, or doesn't fire at all@{ub}
+
+  - Confirm you passed an edge argument to Bifrost - with none, only
+    Scroll Lock/Pause work (see @{" Edge Switching " link edgeswitching}).
+  - Remember a deliberate push is required, not just a graze - see the
+    "Avoiding Accidental Switches" section.
+  - Switching is intentionally suppressed while a mouse button is held
+    (e.g. mid-drag).
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Mouse feels jerky or laggy@{ub}
+
+  - On Windows, make sure nothing else is claiming exclusive Raw Input
+    access (some games/overlays do).
+  - On Linux/macOS, some imprecision compared to Windows is expected
+    (see @{" Compatibility " link compatibility}).
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@endnode
+
+@node technical "Technical Details"
+@prev troubleshooting
+@next license
+@toc main
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+@{fg highlight}
+                           @{b}TECHNICAL DETAILS@{ub}
+@{fg text}
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Architecture@{ub}
+
+  @{b}PC server@{ub} (Python): captures mouse/keyboard globally, broadcasts UDP
+  discovery, and forwards events to the connected Amiga over TCP.
+
+  @{b}Amiga client@{ub} (C, compiled with VBCC): a small background daemon that
+  listens for the discovery broadcast, connects to the server, and
+  injects the received events into AmigaOS via input.device.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Wire Protocol@{ub}
+
+Events travel as fixed 8-byte binary packets (mouse moves, mouse
+buttons, keyboard keys, wheel scroll, connection handshake, and the
+edge-switch control messages described in
+@{" Edge Switching " link edgeswitching}). The connection has no length
+prefix, so every packet is always exactly 8 bytes.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Event Injection@{ub}
+
+  - Mouse moves are injected as IECLASS_RAWMOUSE relative deltas.
+  - Keyboard keys are injected as IECLASS_RAWKEY events.
+  - Wheel scroll is injected under both IECLASS_RAWKEY and
+    IECLASS_NEWMOUSE (NM_WHEEL_UP/DOWN), following the NewMouse standard
+    so both modern and legacy software recognise it.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Reconnection@{ub}
+
+The Amiga client keeps its own background process alive across
+disconnects: on any connection loss it simply goes back to waiting for
+the next discovery broadcast and reconnects automatically, with no need
+to relaunch Bifrost.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@endnode
+
+@node license "License & Credits"
+@prev technical
+@toc main
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+@{fg highlight}
+                           @{b}LICENSE & CREDITS@{ub}
+@{fg text}
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}MIT License@{ub}
+
+Copyright (c) 2026 Vincent Buzzano
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject
+to the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Credits@{ub}
+
+  @{b}Author@{ub}:        Vincent Buzzano
+  @{b}Version@{ub}:       ~ 0.3 [PROGRAM_VERSION]~
+  @{b}Date@{ub}:          ~ 20.07.2026 [PROGRAM_DATE]~
+  @{b}Toolchain@{ub}:     VBCC m68k-amigaos compiler (Amiga client), Python 3 (PC server)
+
+@{b}Special Thanks@{ub}:
+  - The Amiga community for the NewMouse protocol
+  - VBCC developers for the excellent m68k compiler
+  - The pynput and Python communities
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Support & Feedback@{ub}
+
+  @{b}GitHub@{ub}:  https://github.com/vbuzzano/Bifrost
+  @{b}Issues@{ub}:  Report bugs or request features on GitHub
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+                @{fg shine}Thank you for using Bifrost!@{fg text}
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@endnode
