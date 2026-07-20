@@ -15,9 +15,9 @@ Long-term architecture and feature phases for Bifrost remote input gateway.
 
 ---
 
-## Phase 2: Enhanced Key Mapping 🔜
+## Phase 2: Enhanced Key Mapping & Auto-Discovery 🔜
 
-**Goal:** Fix and extend keyboard support for better Amiga compatibility.
+**Goal:** Fix and extend keyboard support for better Amiga compatibility. Auto-negotiate TCP port.
 
 ### Phase 2.1: Special Key Remapping
 - Map PC Right Window → Amiga Left Amiga key
@@ -26,10 +26,16 @@ Long-term architecture and feature phases for Bifrost remote input gateway.
 - Map PC Left Alt → Amiga Left Alt (with proper ALT key handling)
 - **Impact:** Full keyboard compatibility with Amiga layouts
 
-### Phase 2.2: Runtime Arguments & Control Port
+### Phase 2.2: Auto-Discovery Port Negotiation
+- PC includes TCP port in UDP `Bifrost_HERE` response
+- Amiga parses port from discovery reply
+- Amiga connects to negotiated port automatically
+- **Impact:** No need to match ports on both sides — Amiga auto-detects PC port
+- **Current workaround:** Manually specify port on Amiga CLI: `Bifrost <port>`
+
+### Phase 2.3: Runtime Arguments & Control Port
 - Add `STATUS` argument - query connection status
 - Add `STOP` argument - disconnect and quit gracefully
-- Add `PORT=<n>` argument - change TCP port at runtime
 - Live config updates via PORT protocol (like XMouseD)
 - **Impact:** Better process control and scriptability from shell
 
