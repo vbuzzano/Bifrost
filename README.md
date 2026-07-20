@@ -39,8 +39,8 @@ Bifrost
 - Network connectivity to Amiga (Ethernet or USB FTDI)
 
 ### Amiga Requirements
-- Vampire V4 (68080 SAGA)
-- AmigaOS 3.2+
+- Any Amiga with a TCP/IP stack (AmiTCP, Roadshow, or ApolloOS networking) — no specific accelerator or chipset required
+- AmigaOS 3.x
 - Network connectivity to PC
 
 ### Setup
