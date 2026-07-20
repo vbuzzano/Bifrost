@@ -1,1 +1,2 @@
 pynput>=1.7.0
+pystray>=0.15
