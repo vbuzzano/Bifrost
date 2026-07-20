@@ -52,7 +52,8 @@ pip install -r requirements.txt
 
 **2. Start server:**
 ```bash
-python server/main.py
+python server/main.py           # Default port 7890
+python server/main.py --port 9999  # Custom port
 ```
 
 **3. Copy Bifrost to Amiga:**
