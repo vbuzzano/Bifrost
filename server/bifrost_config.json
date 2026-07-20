@@ -1,5 +1,8 @@
 {
-  "comment": "Bifrost Server Configuration. TCP/UDP ports are set via 'python main.py --port N', not here.",
+  "comment": "Bifrost Server Configuration. 'network.port' sets the default TCP port (UDP discovery is always port+1); 'python main.py --port N' overrides it for one-off runs.",
+  "network": {
+    "port": 7890
+  },
   "mouse": {
     "hz": 50,
     "hz_drag": 15,

@@ -89,6 +89,9 @@ Edit `server/bifrost_config.json`:
 
 ```json
 {
+  "network": {
+    "port": 7890
+  },
   "mouse": {
     "hz": 50,
     "hz_drag": 15,

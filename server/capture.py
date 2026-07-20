@@ -45,6 +45,7 @@ def _load_config():
 
     # Default values
     defaults = {
+        'network': {'port': 7890},
         'mouse': {'hz': 50, 'hz_drag': 15, 'speed': 1, 'delta_max': 80},
         'curve': {'linear': 2.0, 'ratio': 0.5},
         'keys': {'toggle': 'scroll_lock', 'emergency': 'pause', 'kill_modifier': 'ctrl'},

@@ -9,7 +9,10 @@ Usage:
     python main.py [--host HOST] [--port PORT]
 
     --host  Listen address (default: 0.0.0.0)
-    --port  TCP port       (default: 7890)
+    --port  TCP port       (default: network.port from bifrost_config.json,
+                             itself defaulting to 7890 - pass --port to
+                             override for a one-off run without editing
+                             the config)
 """
 import sys
 import os
@@ -20,6 +23,7 @@ import time
 # Ensure imports from this directory work regardless of working directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import capture
 from tcp_server import BifrostServer
 
 # Systray support (optional)
@@ -27,8 +31,10 @@ try:
     from pystray import Icon, Menu, MenuItem
     from PIL import Image, ImageDraw
     HAS_SYSTRAY = True
-except ImportError:
+except ImportError as e:
     HAS_SYSTRAY = False
+    print(f'[WARN] Systray disabled - missing dependency: {e}')
+    print('[WARN] Run "pip install -r requirements.txt" to enable the systray icon')
 
 
 def _create_icon(connected: bool) -> 'Image.Image':
@@ -45,56 +51,67 @@ class _SystrayController:
         self.srv = srv
         self.icon = None
         self.stop_event = threading.Event()
+        self._last_connected = None
+
+    def _menu_for(self, connected: bool) -> 'Menu':
+        status_text = "Amiga Connected" if connected else "Amiga Disconnected"
+        return Menu(
+            MenuItem(status_text, lambda: None, enabled=False),
+            MenuItem("Quit", self._quit)
+        )
 
     def _update_loop(self) -> None:
-        """Periodically update icon based on connection state."""
+        """Update icon/menu only when connection state actually changes."""
         while not self.stop_event.is_set():
-            try:
-                with self.srv._lock:
-                    connected = self.srv._conn is not None
+            with self.srv._lock:
+                connected = self.srv._conn is not None
 
-                status_text = "Amiga Connected" if connected else "Amiga Disconnected"
+            if connected != self._last_connected:
+                self._last_connected = connected
                 self.icon.icon = _create_icon(connected)
-
-                menu = Menu(
-                    MenuItem(status_text, lambda: None, enabled=False),
-                    MenuItem("Quit", self._quit)
-                )
-                self.icon.menu = menu
-            except:
-                pass
+                self.icon.menu = self._menu_for(connected)
 
             time.sleep(0.5)
 
     def _quit(self) -> None:
-        """Quit the application."""
+        """Quit the application: stop the tray icon and let the server's
+        own accept loop notice _running=False and unwind cleanly."""
+        self.stop_event.set()
         self.icon.stop()
         self.srv._running = False
 
     def run(self) -> None:
-        """Start server with systray."""
+        """Run the server on the main thread (so Ctrl+C keeps working
+        exactly as without the systray) while the tray icon runs detached
+        in the background."""
         self.icon = Icon(
             "Bifrost",
             icon=_create_icon(connected=False),
-            menu=Menu(
-                MenuItem("Amiga Disconnected", lambda: None, enabled=False),
-                MenuItem("Quit", self._quit)
-            )
+            menu=self._menu_for(connected=False)
         )
+        self.icon.run_detached()
 
-        update_thread = threading.Thread(
-            target=self._update_loop,
-            daemon=True
-        )
+        update_thread = threading.Thread(target=self._update_loop, daemon=True)
         update_thread.start()
 
-        srv_thread = threading.Thread(
-            target=self.srv.run,
-            daemon=False
-        )
-        srv_thread.start()
+        try:
+            self.srv.run()
+        finally:
+            self.stop_event.set()
+            self.icon.stop()
 
-        self.icon.run()
+
+def _resolve_port(cli_port: 'int | None') -> int:
+    """--port always wins when passed; otherwise fall back to
+    network.port from bifrost_config.json (7890 if unset/invalid)."""
+    if cli_port is not None:
+        return cli_port
+    port = capture._CONFIG.get('network', {}).get('port', 7890)
+    if not isinstance(port, int) or isinstance(port, bool) or not (1 <= port <= 65535):
+        print(f"[WARN] Invalid network.port={port!r} in bifrost_config.json "
+              f"(must be 1-65535) - using default 7890")
+        return 7890
+    return port
 
 
 def main() -> None:
@@ -103,11 +120,12 @@ def main() -> None:
     )
     p.add_argument('--host', default='0.0.0.0',
                    help='Listen address (default: 0.0.0.0 = all interfaces)')
-    p.add_argument('--port', type=int, default=7890,
-                   help='TCP port (default: 7890)')
+    p.add_argument('--port', type=int, default=None,
+                   help='TCP port (default: network.port from bifrost_config.json)')
     args = p.parse_args()
 
-    srv = BifrostServer(host=args.host, port=args.port)
+    port = _resolve_port(args.port)
+    srv = BifrostServer(host=args.host, port=port)
 
     if HAS_SYSTRAY:
         ctrl = _SystrayController(srv)

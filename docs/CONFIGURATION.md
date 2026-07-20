@@ -237,13 +237,22 @@ Wheel: UP
 
 ## Network Configuration
 
-**Not set via `bifrost_config.json`.** TCP/UDP ports are set via command-line flags on `server/main.py`, not the JSON config file:
+### `network.port` (TCP Port)
 
-```bash
-python server/main.py --port 9999
+**Default:** `7890`
+
+**What it does:** Sets the TCP port the server listens on. This is the persistent way to change the port — useful since the server is normally launched automatically at PC boot, where passing a CLI flag each time isn't practical.
+
+```json
+{
+  "network": {
+    "port": 9999
+  }
+}
 ```
 
-- TCP port defaults to 7890 (`--port`)
+- `--port` on the command line always overrides `network.port`, for one-off runs without touching the config
+- Invalid values (not an integer, or outside 1-65535) fall back to 7890 with a console warning
 - UDP discovery port is always TCP port + 1 (automatic, not separately configurable)
 - If you change the port, remember to also pass it to the Amiga client: `Bifrost 9999`
 

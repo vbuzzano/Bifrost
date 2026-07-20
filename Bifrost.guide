@@ -245,9 +245,10 @@ Requires Python 3 and the @{b}pynput@{ub} package on the PC.
 
   - Amiga and PC must be on the same LAN (see
     @{" Discovery " link discovery}).
-  - TCP port 7890 by default, configurable via CLI argument. The UDP
-    discovery port is always TCP port + 1 (7891 by default) and is not
-    separately configurable.
+  - TCP port 7890 by default, set via @{b}network.port@{ub} in the PC
+    server's @{b}bifrost_config.json@{ub} (or overridden with @{b}--port@{ub}
+    for a one-off run). The UDP discovery port is always TCP port + 1
+    (7891 by default) and is not separately configurable.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 
