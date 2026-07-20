@@ -29,7 +29,8 @@ from pynput.keyboard import Key
 from protocol import (pack_mouse_move, pack_mouse_btn, pack_key, pack_wheel,
                       pack_focus_enter,
                       BTN_LEFT, BTN_RIGHT, BTN_MIDDLE,
-                      QUAL_LBUTTON, QUAL_RBUTTON, WHEEL_UP, WHEEL_DOWN)
+                      QUAL_LBUTTON, QUAL_RBUTTON, WHEEL_UP, WHEEL_DOWN,
+                      QUAL_CTRL, QUAL_LSHIFT, QUAL_RSHIFT, QUAL_LALT, QUAL_RALT)
 from keymap import get_rawcode, QUAL_MAP
 from edge_resistance import (EDGE_NONE, EdgeResistance,
                               percent_along_edge, position_from_percent)
@@ -47,7 +48,6 @@ def _load_config():
         'mouse': {'hz': 50, 'hz_drag': 15, 'speed': 1, 'delta_max': 80},
         'curve': {'linear': 2.0, 'ratio': 0.5},
         'keys': {'toggle': 'scroll_lock', 'emergency': 'pause', 'kill_modifier': 'ctrl'},
-        'network': {'tcp_port': 7890, 'udp_discovery_port': 7891},
         'debug': {'enabled': True, 'print_events': True}
     }
 
@@ -59,20 +59,28 @@ def _load_config():
             for section in defaults:
                 if section in user_config and isinstance(user_config[section], dict):
                     defaults[section].update(user_config[section])
-            print(f"✓ Loaded config from {config_file}")
+            print(f"[OK] Loaded config from {config_file}")
         else:
-            print(f"⚠ Config file not found: {config_file}")
+            print(f"[WARN] Config file not found: {config_file}")
             print(f"  Using default configuration")
     except json.JSONDecodeError as e:
-        print(f"✗ JSON parse error in {config_file}: {e}")
+        print(f"[ERROR] JSON parse error in {config_file}: {e}")
         print(f"  Using default configuration")
     except Exception as e:
-        print(f"✗ Error loading config: {e}")
+        print(f"[ERROR] Error loading config: {e}")
         print(f"  Using default configuration")
 
     return defaults
 
 _CONFIG = _load_config()
+
+def _validate_positive_number(value, name, default):
+    """Ensure value is a positive int/float; fall back to default (with a warning) otherwise."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        print(f"[WARN] Invalid {name}={value!r} in bifrost_config.json "
+              f"(must be a positive number) - using default {default}")
+        return default
+    return value
 
 # Parse key names to pynput Key objects
 _KEY_MAP = {
@@ -84,21 +92,51 @@ _KEY_MAP = {
     'enter': Key.enter,
 }
 
-def _get_key(key_name):
-    """Convert key name string to pynput Key object."""
-    key_lower = key_name.lower()
-    return _KEY_MAP.get(key_lower, Key.scroll_lock)  # fallback to scroll_lock
+def _get_key(key_name, field_name, default_name):
+    """Convert key name string to pynput Key object; falls back to default_name
+    (with a warning) for any missing, non-string, or unrecognized value."""
+    if isinstance(key_name, str):
+        key = _KEY_MAP.get(key_name.lower())
+        if key is not None:
+            return key
+    print(f"[WARN] Invalid {field_name}={key_name!r} in bifrost_config.json "
+          f"(expected one of {sorted(_KEY_MAP)}) - using default '{default_name}'")
+    return _KEY_MAP[default_name]
+
+# keys.kill_modifier name -> qualifier bitmask (see protocol.py QUAL_*)
+_MODIFIER_MAP = {
+    'ctrl':  QUAL_CTRL,
+    'shift': QUAL_LSHIFT | QUAL_RSHIFT,
+    'alt':   QUAL_LALT | QUAL_RALT,
+}
+
+def _get_modifier_mask(name, default_name):
+    if isinstance(name, str) and name.lower() in _MODIFIER_MAP:
+        return _MODIFIER_MAP[name.lower()]
+    print(f"[WARN] Invalid keys.kill_modifier={name!r} in bifrost_config.json "
+          f"(expected one of {sorted(_MODIFIER_MAP)}) - using default '{default_name}'")
+    return _MODIFIER_MAP[default_name]
 
 # Load configuration into module-level variables
-MOUSE_HZ = _CONFIG['mouse']['hz']
-MOUSE_HZ_DRAG = _CONFIG['mouse']['hz_drag']
-MOUSE_SPEED = _CONFIG['mouse']['speed']
-DELTA_MAX = _CONFIG['mouse']['delta_max']
-CURVE_LINEAR = _CONFIG['curve']['linear']
-CURVE_RATIO = _CONFIG['curve']['ratio']
-TOGGLE_KEY = _get_key(_CONFIG['keys']['toggle'])
-EMERGENCY_KEY = _get_key(_CONFIG['keys']['emergency'])
-KILL_KEY = EMERGENCY_KEY  # same key, check for modifier combo
+MOUSE_HZ      = _validate_positive_number(_CONFIG['mouse']['hz'], 'mouse.hz', 50)
+MOUSE_HZ_DRAG = _validate_positive_number(_CONFIG['mouse']['hz_drag'], 'mouse.hz_drag', 15)
+if MOUSE_HZ_DRAG > MOUSE_HZ:
+    print(f"[WARN] mouse.hz_drag ({MOUSE_HZ_DRAG}) cannot exceed mouse.hz ({MOUSE_HZ}) "
+          f"- clamping to {MOUSE_HZ}")
+    MOUSE_HZ_DRAG = MOUSE_HZ
+MOUSE_SPEED   = _CONFIG['mouse']['speed']
+DELTA_MAX     = _validate_positive_number(_CONFIG['mouse']['delta_max'], 'mouse.delta_max', 80)
+CURVE_LINEAR  = _CONFIG['curve']['linear']
+CURVE_RATIO   = _CONFIG['curve']['ratio']
+TOGGLE_KEY    = _get_key(_CONFIG['keys']['toggle'], 'keys.toggle', 'scroll_lock')
+EMERGENCY_KEY = _get_key(_CONFIG['keys']['emergency'], 'keys.emergency', 'pause')
+if EMERGENCY_KEY == TOGGLE_KEY:
+    # Pick whichever fallback name doesn't collide with the (already resolved) toggle key
+    _fallback_name = 'pause' if TOGGLE_KEY != Key.pause else 'esc'
+    print(f"[WARN] keys.toggle and keys.emergency resolve to the same key - "
+          f"forcing keys.emergency to '{_fallback_name}' instead")
+    EMERGENCY_KEY = _KEY_MAP[_fallback_name]
+KILL_MODIFIER_MASK = _get_modifier_mask(_CONFIG['keys']['kill_modifier'], 'ctrl')
 DEBUG = _CONFIG['debug']['enabled']
 
 MOUSE_INTERVAL = 1.0 / MOUSE_HZ
@@ -382,7 +420,7 @@ def _on_key_press(key):
     # Emergency: Pause -> force PC focus via thread (NOT direct call - deadlock risk)
     # Ctrl+Pause -> kill server
     if key == EMERGENCY_KEY:
-        if _qualifiers & 0x04:  # QUAL_CTRL
+        if _qualifiers & KILL_MODIFIER_MASK:
             print('[Bifrost] KILL: Ctrl+Pause - exiting')
             _cursor_amiga_exit()
             import os; os._exit(0)

@@ -1,5 +1,5 @@
 {
-  "comment": "Bifrost Server Configuration",
+  "comment": "Bifrost Server Configuration. TCP/UDP ports are set via 'python main.py --port N', not here.",
   "mouse": {
     "hz": 50,
     "hz_drag": 15,
@@ -14,10 +14,6 @@
     "toggle": "scroll_lock",
     "emergency": "pause",
     "kill_modifier": "ctrl"
-  },
-  "network": {
-    "tcp_port": 7890,
-    "udp_discovery_port": 7891
   },
   "debug": {
     "enabled": true,
