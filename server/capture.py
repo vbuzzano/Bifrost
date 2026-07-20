@@ -18,7 +18,9 @@ Keyboard:
   suppress=True in Amiga mode (listener restarted on toggle).
 """
 import ctypes
+import json
 import math
+import os
 import platform
 import threading
 import time
@@ -33,30 +35,73 @@ from edge_resistance import (EDGE_NONE, EdgeResistance,
                               percent_along_edge, position_from_percent)
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Configuration - Load from bifrost_config.json
 # ---------------------------------------------------------------------------
 
-TOGGLE_KEY     = Key.scroll_lock
-EMERGENCY_KEY  = Key.pause        # force return to PC even if stuck (works with suppress=True)
-KILL_KEY       = Key.pause        # + Ctrl held -> kill the server entirely
-MOUSE_HZ       = 50               # = PAL VBL rate (1 event/frame = 20ms)
-MOUSE_HZ_DRAG  = 15               # every 4th tick @ 20ms = 80ms drag interval (no MCP opaque lag)
-                                  # For RTG SAGA 1280x720x32 (~16Hz VBL): use MOUSE_HZ_DRAG=8
-                                  # For RTG SAGA 1280x1024x32 (~10Hz VBL): use MOUSE_HZ_DRAG=6
+def _load_config():
+    """Load configuration from bifrost_config.json with sensible defaults."""
+    config_file = os.path.join(os.path.dirname(__file__), 'bifrost_config.json')
+
+    # Default values
+    defaults = {
+        'mouse': {'hz': 50, 'hz_drag': 15, 'speed': 1, 'delta_max': 80},
+        'curve': {'linear': 2.0, 'ratio': 0.5},
+        'keys': {'toggle': 'scroll_lock', 'emergency': 'pause', 'kill_modifier': 'ctrl'},
+        'network': {'tcp_port': 7890, 'udp_discovery_port': 7891},
+        'debug': {'enabled': True, 'print_events': True}
+    }
+
+    try:
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                user_config = json.load(f)
+            # Merge user config with defaults
+            for section in defaults:
+                if section in user_config and isinstance(user_config[section], dict):
+                    defaults[section].update(user_config[section])
+            print(f"✓ Loaded config from {config_file}")
+        else:
+            print(f"⚠ Config file not found: {config_file}")
+            print(f"  Using default configuration")
+    except json.JSONDecodeError as e:
+        print(f"✗ JSON parse error in {config_file}: {e}")
+        print(f"  Using default configuration")
+    except Exception as e:
+        print(f"✗ Error loading config: {e}")
+        print(f"  Using default configuration")
+
+    return defaults
+
+_CONFIG = _load_config()
+
+# Parse key names to pynput Key objects
+_KEY_MAP = {
+    'scroll_lock': Key.scroll_lock,
+    'pause': Key.pause,
+    'esc': Key.esc,
+    'tab': Key.tab,
+    'backspace': Key.backspace,
+    'enter': Key.enter,
+}
+
+def _get_key(key_name):
+    """Convert key name string to pynput Key object."""
+    key_lower = key_name.lower()
+    return _KEY_MAP.get(key_lower, Key.scroll_lock)  # fallback to scroll_lock
+
+# Load configuration into module-level variables
+MOUSE_HZ = _CONFIG['mouse']['hz']
+MOUSE_HZ_DRAG = _CONFIG['mouse']['hz_drag']
+MOUSE_SPEED = _CONFIG['mouse']['speed']
+DELTA_MAX = _CONFIG['mouse']['delta_max']
+CURVE_LINEAR = _CONFIG['curve']['linear']
+CURVE_RATIO = _CONFIG['curve']['ratio']
+TOGGLE_KEY = _get_key(_CONFIG['keys']['toggle'])
+EMERGENCY_KEY = _get_key(_CONFIG['keys']['emergency'])
+KILL_KEY = EMERGENCY_KEY  # same key, check for modifier combo
+DEBUG = _CONFIG['debug']['enabled']
+
 MOUSE_INTERVAL = 1.0 / MOUSE_HZ
-MOUSE_SPEED    = 1                # raw input has no Windows acceleration: multiply to compensate
-                                  # increase if cursor feels slow, decrease if too fast
-DELTA_MAX      = 80      # discard impossible startup deltas
-# Amiga screen mode
-#AMIGA_W        = 640
-#AMIGA_H        = 512
-# Mouse curve - piecewise linear:
-#   |d| <= CURVE_LINEAR  ->  output = |d|         (1:1, precise)
-#   |d| >  CURVE_LINEAR  ->  output = CURVE_LINEAR + (|d|-CURVE_LINEAR)*CURVE_RATIO
-# Result: 1->1, 2->2, 3->2.5, 4->3, 5->3.5, 10->6, 20->11
-CURVE_LINEAR   = 2.0    # threshold for 1:1 zone
-CURVE_RATIO    = 0.5    # slope above threshold (0.5 = compress by half)
-DEBUG          = True   # print events to console (set False to silence)
 
 # ---------------------------------------------------------------------------
 # Platform helpers

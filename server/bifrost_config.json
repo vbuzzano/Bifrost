@@ -1,0 +1,26 @@
+{
+  "comment": "Bifrost Server Configuration",
+  "mouse": {
+    "hz": 50,
+    "hz_drag": 15,
+    "speed": 1,
+    "delta_max": 80
+  },
+  "curve": {
+    "linear": 2.0,
+    "ratio": 0.5
+  },
+  "keys": {
+    "toggle": "scroll_lock",
+    "emergency": "pause",
+    "kill_modifier": "ctrl"
+  },
+  "network": {
+    "tcp_port": 7890,
+    "udp_discovery_port": 7891
+  },
+  "debug": {
+    "enabled": true,
+    "print_events": true
+  }
+}
