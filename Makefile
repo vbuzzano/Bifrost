@@ -15,7 +15,7 @@ SHELL = cmd.exe
 TOOLS_DIR = $(VENDOR_DIR)/tools
 
 # Source files
-SRC_Bifrost = $(wildcard $(SRC_DIR)/*.c)
+SRC_Bifrost = $(SRC_DIR)/main.c
 ASM = $(wildcard $(SRC_DIR)/*.s)
 
 EXE_FILE = $(DIST_DIR)/$(PROGRAM_EXE_NAME)
