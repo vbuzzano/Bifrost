@@ -85,3 +85,20 @@ Set-Location $env:DIST_DIR
 . ..\$env:LHATOOL -a "$ReleaseDir.lha" "$ReleaseDir\$env:PROGRAM_EXE_NAME" "$ReleaseDir\Install" "$ReleaseDir\Install.info" "$ReleaseDir\$env:PROGRAM_NAME.guide" "$ReleaseDir\$env:PROGRAM_NAME.guide.info" "$ReleaseDir.info" "$ReleaseDir.readme" "$ReleaseDir.readme.info"
 . ..\$env:LHATOOL -l "$ReleaseDir.lha"
 Set-Location ..
+
+# ============================================================================
+# Two release flavors from here:
+#   - GitHub: "$ReleaseDir.lha" (versioned name, e.g. Bifrost-0.3.lha) stays
+#     in dist/ as-is - this is what gets attached to a GitHub release.
+#   - Aminet: filenames without the version (Aminet tracks versions itself,
+#     re-uploading under the same name each time) - built into dist/Aminet/.
+# ============================================================================
+
+New-Item -ItemType Directory -Path "$env:DIST_DIR\Aminet" -Force -ErrorAction Stop | Out-Null
+Copy-Item -Force "$env:DIST_DIR\$ReleaseDir.lha" "$env:DIST_DIR\Aminet\$env:PROGRAM_NAME.lha"
+Move-Item -Force "$env:DIST_DIR\$ReleaseDir.readme" "$env:DIST_DIR\Aminet\$env:PROGRAM_NAME.readme"
+
+# Clean up intermediate versioned artifacts (the .lha itself is kept for GitHub)
+Remove-Item -Force -Recurse "$env:DIST_DIR\$ReleaseDir.readme.info"
+Remove-Item -Force -Recurse "$env:DIST_DIR\$ReleaseDir"
+Remove-Item -Force "$env:DIST_DIR\$ReleaseDir.info"
