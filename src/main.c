@@ -59,7 +59,7 @@ struct hostent;
 // ---> BEGIN GENERATED PROGRAM_CONSTANTS
 #define PROGRAM_NAME "Bifrost"
 #define PROGRAM_VERSION "0.3"
-#define PROGRAM_DATE "20.07.2026"
+#define PROGRAM_DATE "21.07.2026"
 #define PROGRAM_AUTHOR "Vincent Buzzano"
 #define PROGRAM_DESC_SHORT "Amiga Mouse & Keyboard Controller"
 // <--- END GENERATED PROGRAM CONSTANTS

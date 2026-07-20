@@ -101,7 +101,7 @@ automatically.
 VERSION HISTORY
 
 
-~ 0.3 [PROGRAM_VERSION]~ (~ 20.07.2026 [PROGRAM_DATE]~)
+~ 0.3 [PROGRAM_VERSION]~ (~ 21.07.2026 [PROGRAM_DATE]~)
 
 Initial public release with full feature set:
   - UDP broadcast discovery - no IP address to configure on the Amiga

@@ -12,7 +12,7 @@
     Project = @{
         Name        = "Bifrost"
         Version     = "0.3"
-        VersionDate = "20.07.2026"
+        VersionDate = "21.07.2026"
         Author      = "Vincent Buzzano"
         Description = "Amiga Mouse and Keyboard Input Controller via PC (Windows/Mac/Linux)"
         DescShort   = "Amiga Mouse & Keyboard Controller"
