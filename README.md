@@ -21,7 +21,7 @@ Bifrost enables seamless mouse and keyboard forwarding from a PC to a Vampire V4
 ### 1. PC Side
 ```bash
 pip install -r server/requirements.txt
-python server/capture.py
+python server/main.py
 ```
 
 ### 2. Amiga Side
@@ -52,7 +52,7 @@ pip install -r requirements.txt
 
 **2. Start server:**
 ```bash
-python server/capture.py
+python server/main.py
 ```
 
 **3. Copy Bifrost to Amiga:**

@@ -8,7 +8,7 @@ Edit `server/bifrost_config.json` to adjust parameters. No code changes needed. 
 
 ```bash
 # Start server with config loaded
-python server/capture.py
+python server/main.py
 ```
 
 ---
@@ -187,9 +187,23 @@ AmigaOS needs **predictable** mouse acceleration, not Windows' aggressive rampin
 
 **Note:** This works even if other input is stuck or suppressed (pynput emergency handler).
 
+**Supported values:** `scroll_lock`, `pause`, `esc`, `tab`, `backspace`, `enter`
+
 **When to adjust:**
 - Use different key: `"esc"`
-- Disable: remove or set to empty string (not recommended)
+
+**Note:** Can't be disabled or set equal to `keys.toggle` — an invalid value, or a collision with `keys.toggle`, falls back to a safe default with a console warning.
+
+### `keys.kill_modifier` (Kill-Server Modifier)
+
+**Default:** `"ctrl"`  
+**Supported values:** `ctrl`, `shift`, `alt`
+
+**What it does:** Holding this modifier while pressing the emergency key (e.g. Ctrl+Pause) force-quits the server instead of just returning focus to PC.
+
+**When to adjust:**
+- Prefer Shift instead of Ctrl: `"shift"`
+- An invalid value falls back to `"ctrl"` with a console warning.
 
 ---
 
@@ -223,14 +237,18 @@ Wheel: UP
 
 ## Network Configuration
 
-### `network.tcp_port` & `network.udp_discovery_port`
+**Not set via `bifrost_config.json`.** TCP/UDP ports are set via command-line flags on `server/main.py`, not the JSON config file:
 
-**Defaults:** TCP=7890, UDP=7891
+```bash
+python server/main.py --port 9999
+```
 
-**Note:** UDP port is always TCP port + 1 (automatic).
+- TCP port defaults to 7890 (`--port`)
+- UDP discovery port is always TCP port + 1 (automatic, not separately configurable)
+- If you change the port, remember to also pass it to the Amiga client: `Bifrost 9999`
 
 **When to adjust:**
-- Network conflicts (another service on 7890): change TCP to 9999
+- Network conflicts (another service on 7890): pass `--port 9999`
 - Firewall rules: adjust to match your policy
 - USB FTDI bridge: may need different ports (untested)
 
@@ -294,7 +312,7 @@ Wheel: UP
 ## Testing Your Config
 
 1. **Edit** `bifrost_config.json`
-2. **Restart** `python server/capture.py`
+2. **Restart** `python server/main.py`
 3. **Watch console** for config load message
 4. **Test for 2-3 minutes** to feel the change
 5. **Adjust if needed** and repeat
