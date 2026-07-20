@@ -14,6 +14,7 @@ Bifrost enables seamless mouse and keyboard forwarding from a PC to a Vampire V4
 ✅ **Edge Detection** - Screen edge/corner switching for focus control  
 ✅ **Auto-Discovery** - UDP broadcast — no IP configuration needed  
 ✅ **JSON Configuration** - No code edits — configure via `bifrost_config.json`  
+✅ **Systray Status Icon** - Green icon when Amiga connected, grey when disconnected  
 ✅ **Python Server** - Cross-platform PC side daemon (Windows/Linux/macOS)  
 
 ## Quick Start
@@ -114,6 +115,21 @@ Edit `server/bifrost_config.json`:
 
 - **Scroll Lock key** - Toggle between PC and Amiga input
 - **Screen corner** - Top-right click also triggers toggle (if enabled via edge config)
+
+### Systray Status Icon (PC)
+
+When the server runs, a systray icon shows the Amiga connection state:
+
+- 🟢 **Green circle** - Amiga is connected and ready to receive input
+- ⚫ **Grey circle** - Amiga is disconnected (waiting for Amiga to connect)
+
+The systray menu displays:
+- Current connection status: "Amiga Connected" or "Amiga Disconnected"
+- **Quit** button to exit the server gracefully
+
+Updates every 0.5 seconds to reflect connection state changes in real-time.
+
+**Note:** Systray support requires `pystray` (installed via `pip install -r requirements.txt`). If not installed, the server runs normally without systray.
 
 ## Architecture
 
