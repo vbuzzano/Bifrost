@@ -59,7 +59,7 @@ struct hostent;
 
 // ---> BEGIN GENERATED PROGRAM_CONSTANTS
 #define PROGRAM_NAME "Bifrost"
-#define PROGRAM_VERSION "0.3"
+#define PROGRAM_VERSION "0.4.0"
 #define PROGRAM_DATE "21.07.2026"
 #define PROGRAM_AUTHOR "Vincent Buzzano"
 #define PROGRAM_DESC_SHORT "Amiga Mouse & Keyboard Controller"
@@ -125,6 +125,27 @@ struct hostent;
 #define QUAL_RBUTTON    0x40    // right mouse button held
 #define QUAL_AMIGA      0x80    // Left or Right Amiga key held
 
+//===========================================================================
+// Control port - lets a second "Bifrost STATUS"/"Bifrost STOP" invocation
+// talk to the already-running daemon instead of launching a duplicate.
+//===========================================================================
+
+// Changing port name breaks compatibility with third-party tools/scripts.
+#define Bifrost_PORT_NAME   "Bifrost_Port" // WARNING: Modify with caution!
+
+#define BMSG_CMD_QUIT        0   // Stop daemon (disconnects from PC first)
+#define BMSG_CMD_GET_STATUS  1   // Query connection status
+
+#define CONTROL_REPLY_TIMEOUT 2  // seconds to wait for daemon reply
+
+struct BifrostMsg
+{
+    struct Message msg;
+    UBYTE          command;  // BMSG_CMD_*
+    ULONG          value;    // command parameter (unused for now)
+    ULONG          result;   // 0xFFFFFFFF = error; else command-specific
+};
+
 // Packet size - 8 bytes, big-endian
 // Layout: [type][flags][x:int16][y:int16][code][state]
 #define PKT_SIZE        8
@@ -187,6 +208,10 @@ static struct InputEvent s_eventBuf;
 static struct MsgPort       *s_TimerPort = NULL;
 static struct timerequest   *s_TimerReq  = NULL;
 
+// Control port (STATUS/STOP) and the connection state it reports.
+static struct MsgPort *s_ControlPort = NULL;
+static BOOL            s_connected   = FALSE;
+
 // Amiga-side cursor position estimate (updated from every injected delta)
 // and the last known screen dimensions, both refreshed by correctPosition()
 // (~150ms real elapsed time, checked opportunistically in the recv loop).
@@ -228,8 +253,10 @@ const char version[] = VERSION_STRING;
 //===========================================================================
 
 static void daemon(void);
+static void processControlMessages(BOOL *quitFlag);
 static BOOL daemonInit(void);
 static void daemonCleanup(LONG sock);
+static ULONG sendBifrostMessage(struct MsgPort *port, UBYTE cmd, ULONG value);
 static inline void injectEvent(struct InputEvent *ev);
 static inline UWORD qualToAmiga(UBYTE flags);
 static LONG connectWithTimeout(LONG sock, struct sockaddr_in *sa, LONG timeoutSecs);
@@ -325,6 +352,107 @@ static BOOL parseEdgeToken(UBYTE *p, UBYTE *outMask, LONG *outLen)
 }
 
 //===========================================================================
+// sendBifrostMessage - Send a control message to the running daemon's
+// public port and wait for its reply, with a timeout in case the daemon
+// is wedged or the message is somehow never processed.
+//===========================================================================
+
+static ULONG sendBifrostMessage(struct MsgPort *port, UBYTE cmd, ULONG value)
+{
+    struct MsgPort      *replyPort = NULL;
+    struct BifrostMsg    *msg       = NULL;
+    struct MsgPort       *timerPort = NULL;
+    struct timerequest   *timerReq  = NULL;
+    ULONG                 result    = 0xFFFFFFFF;  // error by default
+    ULONG                 replySig, timerSig, signals;
+
+    replyPort = CreateMsgPort();
+    if (!replyPort)
+    {
+        goto cleanup;
+    }
+
+    timerPort = CreateMsgPort();
+    if (!timerPort)
+    {
+        goto cleanup;
+    }
+    timerReq = (struct timerequest *)CreateIORequest(timerPort, sizeof(struct timerequest));
+    if (!timerReq)
+    {
+        goto cleanup;
+    }
+    if (OpenDevice("timer.device", UNIT_VBLANK, (struct IORequest *)timerReq, 0))
+    {
+        goto cleanup;
+    }
+
+    msg = (struct BifrostMsg *)AllocMem(sizeof(struct BifrostMsg), MEMF_PUBLIC | MEMF_CLEAR);
+    if (!msg)
+    {
+        goto cleanup;
+    }
+
+    msg->msg.mn_Node.ln_Type = NT_MESSAGE;
+    msg->msg.mn_Length       = sizeof(struct BifrostMsg);
+    msg->msg.mn_ReplyPort    = replyPort;
+    msg->command             = cmd;
+    msg->value               = value;
+
+    PutMsg(port, (struct Message *)msg);
+
+    timerReq->tr_node.io_Command = TR_ADDREQUEST;
+    timerReq->tr_time.tv_secs    = CONTROL_REPLY_TIMEOUT;
+    timerReq->tr_time.tv_micro   = 0;
+    SendIO((struct IORequest *)timerReq);
+
+    replySig = 1L << replyPort->mp_SigBit;
+    timerSig = 1L << timerPort->mp_SigBit;
+    signals  = Wait(replySig | timerSig);
+
+    if (signals & replySig)
+    {
+        GetMsg(replyPort);
+        result = msg->result;
+        AbortIO((struct IORequest *)timerReq);
+        WaitIO((struct IORequest *)timerReq);
+    }
+    else if (signals & timerSig)
+    {
+        GetMsg(timerPort);
+        Print(PROGRAM_NAME ": ERROR - daemon not responding (timeout)");
+        result = 0xFFFFFFFF;
+        // Message is still pending in the daemon's port - nothing more we
+        // can do from here; the daemon will process/reply to it eventually
+        // and this (now-abandoned) reply port simply never sees it.
+    }
+
+cleanup:
+    if (msg)
+    {
+        FreeMem(msg, sizeof(struct BifrostMsg));
+    }
+    if (timerReq)
+    {
+        if (timerReq->tr_node.io_Device)
+        {
+            CloseDevice((struct IORequest *)timerReq);
+        }
+        DeleteIORequest((struct IORequest *)timerReq);
+    }
+    if (timerPort)
+    {
+        DeleteMsgPort(timerPort);
+    }
+    if (replyPort)
+    {
+        DeleteMsgPort(replyPort);
+    }
+
+    return result;
+}
+
+//===========================================================================
 // _start() - Entry point, parse optional port/edge args, launch daemon process
 //===========================================================================
 
@@ -332,9 +460,10 @@ LONG _start(void)
 {
     struct Process              *proc;
     struct CommandLineInterface *cli;
-    UBYTE                       *args;
-    LONG                         i;
-    LONG                         portNum;
+    struct MsgPort               *existingPort;
+    UBYTE                        *args;
+    LONG                          i;
+    LONG                          portNum;
 
     SysBase = *(struct ExecBase **)4L;
     DOSBase = (struct DosLibrary *)OpenLibrary("dos.library", 36);
@@ -355,13 +484,85 @@ LONG _start(void)
     // Show usage on '?'
     if (*args == '?')
     {
-        Print("Usage: " PROGRAM_NAME " [port] [edge]");
-        PrintF("  port - TCP port (default: %ld, discovery: port+1)", (LONG)Bifrost_DEFAULT_PORT);
-        Print("  edge - TOP/BOTTOM/LEFT/RIGHT/TOPLEFT/TOPRIGHT/BOTTOMLEFT/BOTTOMRIGHT");
-        Print("         PC edge that switches focus to Amiga (default: none = disabled)");
+        Print("Usage: " PROGRAM_NAME " [port] [edge] | STATUS | STOP");
+        PrintF("  port   - TCP port (default: %ld, discovery: port+1)", (LONG)Bifrost_DEFAULT_PORT);
+        Print("  edge   - TOP/BOTTOM/LEFT/RIGHT/TOPLEFT/TOPRIGHT/BOTTOMLEFT/BOTTOMRIGHT");
+        Print("           PC edge that switches focus to Amiga (default: none = disabled)");
+        Print("  STATUS - query the running daemon's connection status");
+        Print("  STOP   - disconnect and quit the running daemon");
         Print("  Server is discovered automatically via UDP broadcast.");
         CloseLibrary((struct Library *)DOSBase);
         return RETURN_OK;
+    }
+
+    // STOP / STATUS: talk to an already-running daemon instead of parsing
+    // port/edge args or launching a new one. Case-insensitive, must be the
+    // whole (only) token - "STOPX" or "STATUSFOO" don't match.
+    {
+        UBYTE *p = args;
+        BOOL isStop   = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='o' && (p[3]|32)=='p' &&
+                        (p[4]=='\0' || p[4]==' ' || p[4]=='\t' || p[4]=='\n');
+        BOOL isStatus = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='a' && (p[3]|32)=='t' &&
+                        (p[4]|32)=='u' && (p[5]|32)=='s' &&
+                        (p[6]=='\0' || p[6]==' ' || p[6]=='\t' || p[6]=='\n');
+
+        if (isStop || isStatus)
+        {
+            LONG exitCode = RETURN_OK;
+
+            Forbid();
+            existingPort = FindPort(Bifrost_PORT_NAME);
+            Permit();
+
+            if (!existingPort)
+            {
+                Print(PROGRAM_NAME ": not running");
+                CloseLibrary((struct Library *)DOSBase);
+                return RETURN_WARN;
+            }
+
+            if (isStatus)
+            {
+                ULONG status = sendBifrostMessage(existingPort, BMSG_CMD_GET_STATUS, 0);
+                if (status == 0xFFFFFFFF)
+                {
+                    Print(PROGRAM_NAME ": ERROR - failed to get status");
+                    exitCode = RETURN_FAIL;
+                }
+                else
+                {
+                    PrintF(PROGRAM_NAME ": %s", status ? "connected" : "waiting for connection");
+                }
+            }
+            else // isStop
+            {
+                ULONG result = sendBifrostMessage(existingPort, BMSG_CMD_QUIT, 0);
+                if (result != 0)
+                {
+                    Print(PROGRAM_NAME ": ERROR - failed to stop daemon");
+                    exitCode = RETURN_FAIL;
+                }
+                else
+                {
+                    Print(PROGRAM_NAME ": stopped");
+                }
+            }
+
+            CloseLibrary((struct Library *)DOSBase);
+            return exitCode;
+        }
+    }
+
+    // Refuse to launch a second daemon on top of an already-running one -
+    // they'd both bind the same UDP/TCP ports and fight over input.device.
+    Forbid();
+    existingPort = FindPort(Bifrost_PORT_NAME);
+    Permit();
+    if (existingPort)
+    {
+        Print(PROGRAM_NAME ": already running (STOP to quit, STATUS to query)");
+        CloseLibrary((struct Library *)DOSBase);
+        return RETURN_WARN;
     }
 
     // Parse up to 2 whitespace-separated tokens, any order:
@@ -780,6 +981,16 @@ static BOOL daemonInit(void)
         return FALSE;
     }
 
+    // Public control port for STATUS/STOP (see sendBifrostMessage/_start)
+    s_ControlPort = CreateMsgPort();
+    if (!s_ControlPort)
+    {
+        return FALSE;
+    }
+    s_ControlPort->mp_Node.ln_Name = Bifrost_PORT_NAME;
+    s_ControlPort->mp_Node.ln_Pri  = 0;
+    AddPort(s_ControlPort);
+
     // Open timer.device for the periodic correction / resistance clock
     s_TimerPort = CreateMsgPort();
     if (!s_TimerPort)
@@ -843,6 +1054,12 @@ static void daemonCleanup(LONG sock)
     {
         CloseSocket(sock);
     }
+    if (s_ControlPort)
+    {
+        RemPort(s_ControlPort);
+        DeleteMsgPort(s_ControlPort);
+        s_ControlPort = NULL;
+    }
     if (s_InputReq)
     {
         CloseDevice((struct IORequest *)s_InputReq);
@@ -892,6 +1109,37 @@ static void daemonCleanup(LONG sock)
 //   CTRL+C: exit both loops cleanly.
 //===========================================================================
 
+//===========================================================================
+// processControlMessages - Drain and reply to pending STATUS/STOP requests
+// from sendBifrostMessage(). Called from both daemon() loops whenever the
+// control port's signal bit is set.
+//===========================================================================
+
+static void processControlMessages(BOOL *quitFlag)
+{
+    struct BifrostMsg *ctlMsg;
+
+    while ((ctlMsg = (struct BifrostMsg *)GetMsg(s_ControlPort)) != NULL)
+    {
+        switch (ctlMsg->command)
+        {
+            case BMSG_CMD_QUIT:
+                *quitFlag = TRUE;
+                ctlMsg->result = 0;
+                break;
+
+            case BMSG_CMD_GET_STATUS:
+                ctlMsg->result = s_connected ? 1 : 0;
+                break;
+
+            default:
+                ctlMsg->result = 0xFFFFFFFF;
+                break;
+        }
+        ReplyMsg((struct Message *)ctlMsg);
+    }
+}
+
 static void daemon(void)
 {
     struct sockaddr_in  discSa;         // UDP bind address
@@ -900,6 +1148,7 @@ static void daemon(void)
     struct sockaddr_in  tcpSa;          // TCP connect address
     fd_set_t            readFds;
     ULONG               sigMask;
+    ULONG               portSig;
     UBYTE               pkt[PKT_SIZE];
     UBYTE               buf[32];
     LONG                udpSock    = -1;
@@ -916,6 +1165,8 @@ static void daemon(void)
     {
         goto done;
     }
+
+    portSig = 1L << s_ControlPort->mp_SigBit;
 
     discPort = (LONG)(s_port + 1);
 
@@ -953,7 +1204,7 @@ static void daemon(void)
     {
         FD_ZERO(&readFds);
         FD_SET((ULONG)udpSock, &readFds);
-        sigMask = SIGBREAKF_CTRL_C;
+        sigMask = SIGBREAKF_CTRL_C | portSig;
 
         rc = WaitSelect(udpSock + 1, (APTR)&readFds, NULL, NULL, NULL, &sigMask);
 
@@ -961,6 +1212,15 @@ static void daemon(void)
         {
             quit = TRUE;
             break;
+        }
+
+        if (sigMask & portSig)
+        {
+            processControlMessages(&quit);
+            if (quit)
+            {
+                break;
+            }
         }
 
         if (rc <= 0 || !FD_ISSET((ULONG)udpSock, &readFds))
@@ -1031,6 +1291,7 @@ static void daemon(void)
         }
 
         Print(PROGRAM_NAME ": connected - CTRL+C to quit");
+        s_connected = TRUE;
 
         // Fresh per-connection state: resistance machine, position/screen
         // ground truth, and the correction clock.
@@ -1055,7 +1316,7 @@ static void daemon(void)
         {
             FD_ZERO(&readFds);
             FD_SET((ULONG)tcpSock, &readFds);
-            sigMask = SIGBREAKF_CTRL_C;
+            sigMask = SIGBREAKF_CTRL_C | portSig;
 
             rc = WaitSelect(tcpSock + 1, (APTR)&readFds, NULL, NULL, NULL, &sigMask);
 
@@ -1063,6 +1324,15 @@ static void daemon(void)
             {
                 quit = TRUE;
                 break;
+            }
+
+            if (sigMask & portSig)
+            {
+                processControlMessages(&quit);
+                if (quit)
+                {
+                    break;
+                }
             }
 
             if (rc < 0)
@@ -1245,6 +1515,7 @@ static void daemon(void)
         }
 
         // TCP session ended - close socket, loop back to discovery
+        s_connected = FALSE;
         CloseSocket(tcpSock);
         tcpSock = -1;
         if (!quit)

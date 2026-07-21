@@ -1,5 +1,5 @@
 ; ~ Bifrost [PROGRAM_NAME]~ Installer Script
-; $VER: ~ Bifrost [PROGRAM_EXE_NAME]~ ~ 0.3 [PROGRAM_VERSION]~ (~ 21.07.2026 [PROGRAM_DATE]~)
+; $VER: ~ Bifrost [PROGRAM_EXE_NAME]~ ~ 0.4.0 [PROGRAM_VERSION]~ (~ 21.07.2026 [PROGRAM_DATE]~)
 
 (complete 0)
 (set @app-name "~ Bifrost [PROGRAM_NAME]~")

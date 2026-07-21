@@ -1,12 +1,12 @@
 @database Bifrost.guide
 @author "Vincent Buzzano"
-@$VER: ~ 0.3 [PROGRAM_VERSION]~
+@$VER: ~ 0.4.0 [PROGRAM_VERSION]~
 
 @node main "Bifrost"
 @next basicusage
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 @{fg highlight}
-                          @{b}Bifrost v~ 0.3 [PROGRAM_VERSION]~@{ub}
+                          @{b}Bifrost v~ 0.4.0 [PROGRAM_VERSION]~@{ub}
                     Mouse & Keyboard Sharing over the Network
 @{fg text}
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
@@ -68,12 +68,23 @@ begins capturing the PC's mouse and keyboard in the background.
   Bifrost <edge>           - Connect with an edge/corner switch trigger
   Bifrost <port>           - Connect on a non-default TCP port
   Bifrost <edge> <port>    - Both, in any order
+  Bifrost STATUS           - Query the running daemon's connection status
+  Bifrost STOP             - Disconnect and quit the running daemon
 
 Tokens are recognised automatically: a number is always the port, a
 recognised keyword is always the edge - so @{b}Bifrost LEFT 7890@{ub} and
 @{b}Bifrost 7890 LEFT@{ub} do exactly the same thing. See
 @{" Edge Switching " link edgeswitching} for the full list of edge/corner
 keywords.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}STATUS / STOP@{ub}
+
+@{b}STATUS@{ub} and @{b}STOP@{ub} talk to an already-running daemon over a public
+message port instead of launching a new one - useful for scripts. Running
+@{b}Bifrost@{ub} again while an instance is already active is refused; use
+@{b}STOP@{ub} first, or @{b}STATUS@{ub} to check without disturbing it.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 
@@ -397,7 +408,7 @@ DEALINGS IN THE SOFTWARE.
 @{b}Credits@{ub}
 
   @{b}Author@{ub}:        Vincent Buzzano
-  @{b}Version@{ub}:       ~ 0.3 [PROGRAM_VERSION]~
+  @{b}Version@{ub}:       ~ 0.4.0 [PROGRAM_VERSION]~
   @{b}Date@{ub}:          ~ 21.07.2026 [PROGRAM_DATE]~
   @{b}Toolchain@{ub}:     VBCC m68k-amigaos compiler (Amiga client), Python 3 (PC server)
 

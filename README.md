@@ -93,9 +93,13 @@ Bifrost [port] [edge]
 Bifrost                      # Auto-discover, default port (7890)
 Bifrost 9999                 # Custom TCP port (PC must also use 9999)
 Bifrost 9999 TOPRIGHT        # + Edge trigger (top-right corner)
+Bifrost STATUS                # Query the running daemon's connection status
+Bifrost STOP                  # Disconnect and quit the running daemon
 ```
 
 **Edge Options:** `TOP`, `BOTTOM`, `LEFT`, `RIGHT`, `TOPLEFT`, `TOPRIGHT`, `BOTTOMLEFT`, `BOTTOMRIGHT`
+
+**STATUS / STOP:** Talk to the already-running daemon over a public message port (`Bifrost_Port`) instead of launching a new one - useful for scripts. Running `Bifrost` again while an instance is already active is refused (use `STOP` first, or `STATUS` to check).
 
 **⚠️ Port Limitation:** If you change the port on PC, you must also specify it on Amiga CLI. The UDP discovery protocol doesn't currently transmit the TCP port — it's assumed to be `UDP port - 1`. This will be fixed in Phase 2 (auto-negotiation).
 

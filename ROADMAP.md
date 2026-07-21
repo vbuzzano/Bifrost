@@ -24,7 +24,7 @@ Long-term architecture and feature phases for Bifrost remote input gateway.
 - ✅ Map PC Right Windows → Amiga Right Amiga key (default; `keys.right_amiga: "ctrl"` uses Right Ctrl instead)
 - ✅ Map PC INS → Amiga Help key
 - ✅ Left/Right Alt → Amiga Left/Right Alt (already working)
-- 🔜 Wire up Left/Right Amiga as a held qualifier (IEQUALIFIER_LCOMMAND/RCOMMAND) so AmigaOS shortcuts like Amiga+M recognize it, not just the raw key press/release
+- ✅ Left/Right Amiga as a held qualifier (QUAL_AMIGA → IEQUALIFIER_LCOMMAND/RCOMMAND) so AmigaOS shortcuts like Amiga+M recognize it, not just the raw key press/release
 - Capslock Hack ?
 - **Impact:** Full keyboard compatibility with Amiga layouts
 
@@ -36,9 +36,10 @@ Long-term architecture and feature phases for Bifrost remote input gateway.
 - **Current workaround:** Manually specify port on Amiga CLI: `Bifrost <port>`
 
 ### Phase 2.3: Runtime Arguments & Control Port
-- Add `STATUS` argument - query connection status
-- Add `STOP` argument - disconnect and quit gracefully
-- Live config updates via PORT protocol (like XMouseD)
+- ✅ Add `STATUS` argument - query connection status (via a public message port, `Bifrost_Port`)
+- ✅ Add `STOP` argument - disconnect and quit gracefully
+- ✅ Refuse to launch a second daemon while one is already running (was a latent multi-instance bug - two daemons would silently fight over the same UDP/TCP ports and input.device)
+- 🔜 Live config updates via PORT protocol (like XMouseD) - deferred: no live-tunable config value identified yet for the Amiga client (unlike XMouseD's config byte); revisit once one exists
 - **Impact:** Better process control and scriptability from shell
 
 **Estimated:** Phase 2 complete by v0.4
