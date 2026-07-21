@@ -87,15 +87,35 @@ Set-Location $env:DIST_DIR
 Set-Location ..
 
 # ============================================================================
+# GitHub release ZIP: Amiga client (.lha) + PC server (source) in one
+# archive, so a single download covers both sides.
+# ============================================================================
+
+$FullZipDir = "$env:DIST_DIR\$ReleaseDir-full"
+New-Item -ItemType Directory -Path "$FullZipDir\server" -Force -ErrorAction Stop | Out-Null
+Copy-Item -Force "$env:DIST_DIR\$ReleaseDir.lha" "$FullZipDir\"
+Copy-Item -Force "README.md" "$FullZipDir\"
+Copy-Item -Force "server\*.py" "$FullZipDir\server\" -Exclude "test_*.py"
+Copy-Item -Force "server\requirements.txt", "server\bifrost_config.json", `
+                  "server\setup_venv.ps1", "server\setup_venv.sh", `
+                  "server\start_bifrost.bat", "server\start_bifrost.sh", "server\start_bifrost.vbs", `
+                  "server\install_startup.ps1", "server\uninstall_startup.ps1" `
+                  "$FullZipDir\server\"
+Compress-Archive -Force -Path "$FullZipDir\*" -DestinationPath "$env:DIST_DIR\$ReleaseDir.zip"
+Remove-Item -Force -Recurse $FullZipDir
+
+# ============================================================================
 # Two release flavors from here:
-#   - GitHub: "$ReleaseDir.lha" (versioned name, e.g. Bifrost-0.3.lha) stays
-#     in dist/ as-is - this is what gets attached to a GitHub release.
+#   - GitHub: "$ReleaseDir.lha"/"$ReleaseDir.zip" (versioned names, e.g.
+#     Bifrost-0.3.lha/.zip) stay in dist/ as-is - these are what get
+#     attached to a GitHub release.
 #   - Aminet: filenames without the version (Aminet tracks versions itself,
 #     re-uploading under the same name each time) - built into dist/Aminet/.
 # ============================================================================
 
 New-Item -ItemType Directory -Path "$env:DIST_DIR\Aminet" -Force -ErrorAction Stop | Out-Null
 Copy-Item -Force "$env:DIST_DIR\$ReleaseDir.lha" "$env:DIST_DIR\Aminet\$env:PROGRAM_NAME.lha"
+Copy-Item -Force "$env:DIST_DIR\$ReleaseDir.zip" "$env:DIST_DIR\Aminet\$env:PROGRAM_NAME.zip"
 Move-Item -Force "$env:DIST_DIR\$ReleaseDir.readme" "$env:DIST_DIR\Aminet\$env:PROGRAM_NAME.readme"
 
 # Clean up intermediate versioned artifacts (the .lha itself is kept for GitHub)

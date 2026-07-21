@@ -100,7 +100,9 @@ release:
 	@echo ------------------------------------------------------------------
 	@pwsh .\scripts\build-release.ps1
 	@echo ------------------------------------------------------------------
-	@echo Release build completed: $(DIST_DIR)\$(PROGRAM_NAME)-$(PROGRAM_VERSION)
+	@echo Release build completed:
+	@echo   $(DIST_DIR)\$(PROGRAM_NAME)-$(PROGRAM_VERSION).lha  (Amiga client only)
+	@echo   $(DIST_DIR)\$(PROGRAM_NAME)-$(PROGRAM_VERSION).zip  (Amiga client + PC server, GitHub release asset)
 
 # --- Housekeeping ---
 clean:

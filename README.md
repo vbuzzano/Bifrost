@@ -21,8 +21,9 @@ Bifrost enables seamless mouse and keyboard forwarding from a PC to a Vampire V4
 
 ### 1. PC Side
 ```bash
-pip install -r server/requirements.txt
-python server/main.py
+cd server
+./setup_venv.sh          # Windows: pwsh .\setup_venv.ps1
+python main.py            # Windows: .venv\Scripts\python main.py
 ```
 
 ### 2. Amiga Side
@@ -45,17 +46,32 @@ Bifrost
 
 ### Setup
 
-**1. Install Python dependencies:**
+**1. Set up the Python environment (creates `.venv`, installs dependencies):**
 ```bash
 cd server
-pip install -r requirements.txt
+./setup_venv.sh          # Windows: pwsh .\setup_venv.ps1
 ```
 
 **2. Start server:**
 ```bash
-python server/main.py           # Default port 7890
-python server/main.py --port 9999  # Custom port
+python main.py                    # Default port 7890 (Windows: .venv\Scripts\python main.py)
+python main.py --port 9999        # Custom port
 ```
+
+**2b. (optional) Auto-start at login:**
+
+- **Windows:**
+  ```powershell
+  cd server
+  pwsh .\install_startup.ps1
+  ```
+  Adds a shortcut to your Startup folder so Bifrost launches automatically at every login, with no console window (status is shown in the systray). Logs go to `server\bifrost.log`. Run `uninstall_startup.ps1` to remove it.
+
+  (macOS/Linux: the zip doesn't preserve the executable bit - run `chmod +x server/start_bifrost.sh` once after extracting.)
+
+- **macOS:** `start_bifrost.sh` is a plain launch script - it doesn't register itself anywhere. Open **System Settings → General → Login Items**, click **+**, and add `server/start_bifrost.sh`.
+
+- **Linux:** Same idea - most desktop environments have their own "Startup Applications" setting (e.g. GNOME: *Settings → Apps → Startup Applications*; KDE: *System Settings → Autostart*). Point it at `server/start_bifrost.sh`.
 
 **3. Copy Bifrost to Amiga:**
 ```bash

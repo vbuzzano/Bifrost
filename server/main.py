@@ -36,6 +36,38 @@ except ImportError as e:
     print(f'[WARN] Systray disabled - missing dependency: {e}')
     print('[WARN] Run "pip install -r requirements.txt" to enable the systray icon')
 
+_instance_mutex = None  # keeps the Windows mutex handle alive for the process lifetime
+
+
+def _acquire_single_instance_lock() -> bool:
+    """True if this is the only running instance. False means another
+    instance already holds the lock - the caller should exit.
+
+    Needed because tcp_server.py sets SO_REUSEADDR, which on Windows lets
+    a second process bind() the same port with no error - so two copies
+    of the global mouse/keyboard hook would silently run at once instead
+    of the second one failing loudly."""
+    global _instance_mutex
+    if capture._IS_WIN:
+        import ctypes
+        ERROR_ALREADY_EXISTS = 183
+        _instance_mutex = ctypes.windll.kernel32.CreateMutexW(None, False, 'Bifrost_SingleInstance')
+        return ctypes.windll.kernel32.GetLastError() != ERROR_ALREADY_EXISTS
+    else:
+        import tempfile
+        lock_path = os.path.join(tempfile.gettempdir(), 'bifrost.lock')
+        if os.path.exists(lock_path):
+            try:
+                with open(lock_path) as f:
+                    pid = int(f.read().strip())
+                os.kill(pid, 0)  # raises if not running
+                return False
+            except (ValueError, OSError):
+                pass  # stale lock file - fall through and take it
+        with open(lock_path, 'w') as f:
+            f.write(str(os.getpid()))
+        return True
+
 
 def _create_icon(connected: bool) -> 'Image.Image':
     """Create a 16x16 icon: green if connected, grey if disconnected."""
@@ -115,6 +147,10 @@ def _resolve_port(cli_port: 'int | None') -> int:
 
 
 def main() -> None:
+    if not _acquire_single_instance_lock():
+        print('[Bifrost] Another instance is already running - exiting.')
+        sys.exit(1)
+
     p = argparse.ArgumentParser(
         description='Bifrost Server - forward mouse/keyboard to Amiga'
     )
