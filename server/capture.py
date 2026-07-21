@@ -350,6 +350,8 @@ def _on_raw_button(bid, pressed):
 # Mouse handlers - PC mode
 # ---------------------------------------------------------------------------
 
+_RESIST_STATE_NAMES = {0: 'NONE', 1: 'STARTED', 2: 'ACTIVE', 3: 'COOLDOWN'}
+
 def _on_move_pc(x, y):
     global _last_x, _last_y
     dx = 0 if _last_x is None else x - _last_x
@@ -358,6 +360,10 @@ def _on_move_pc(x, y):
     # Suppress edge trigger while a button is held (dragging) - reuses the
     # resistance machine's own EDGE_NONE handling to force/keep state=NONE.
     effective_mask = EDGE_NONE if _pc_btn_held else _pc_edge_mask
+    if DEBUG and effective_mask != EDGE_NONE and _pc_edge_resistance._state != 0:
+        state_name = _RESIST_STATE_NAMES.get(_pc_edge_resistance._state, '?')
+        print(f'[edge] x={x} y={y} dx={dx:+d} dy={dy:+d} screen={_screen_w}x{_screen_h} '
+              f'mask=0x{effective_mask:02x} state={state_name}')
     if _pc_edge_resistance.update(x, y, dx, dy, _screen_w, _screen_h, effective_mask):
         percent = percent_along_edge(x, y, _screen_w, _screen_h, effective_mask)
         _set_focus(FOCUS_AMIGA, entry_percent=percent)

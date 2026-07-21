@@ -51,6 +51,7 @@ QUAL_LALT     = 0x08
 QUAL_RALT     = 0x10
 QUAL_LBUTTON  = 0x20   # left mouse button held (needed for drag on Amiga windows)
 QUAL_RBUTTON  = 0x40   # right mouse button held
+QUAL_AMIGA    = 0x80   # Left or Right Amiga key held (see keymap.py right_amiga)
 
 # '>BBhhBB' = big-endian: uint8, uint8, int16, int16, uint8, uint8 = 8 bytes
 _FMT = '>BBhhBB'

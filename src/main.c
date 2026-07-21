@@ -50,6 +50,7 @@ struct hostent;
 #include <devices/input.h>
 #include <newmouse.h>
 #include <intuition/screens.h>
+#include <intuition/intuitionbase.h>
 #include <proto/intuition.h>
 
 //===========================================================================
@@ -122,6 +123,7 @@ struct hostent;
 #define QUAL_RALT       0x10
 #define QUAL_LBUTTON    0x20    // left mouse button held (drag support)
 #define QUAL_RBUTTON    0x40    // right mouse button held
+#define QUAL_AMIGA      0x80    // Left or Right Amiga key held
 
 // Packet size - 8 bytes, big-endian
 // Layout: [type][flags][x:int16][y:int16][code][state]
@@ -461,6 +463,9 @@ static inline UWORD qualToAmiga(UBYTE flags)
     if (flags & QUAL_RALT)    q |= IEQUALIFIER_RALT;
     if (flags & QUAL_LBUTTON) q |= IEQUALIFIER_LEFTBUTTON;
     if (flags & QUAL_RBUTTON) q |= IEQUALIFIER_RBUTTON;
+    // Server sends a single combined bit (doesn't distinguish which Amiga
+    // key) - set both qualifiers so shortcuts checking either one fire.
+    if (flags & QUAL_AMIGA)   q |= IEQUALIFIER_LCOMMAND | IEQUALIFIER_RCOMMAND;
     return q;
 }
 
@@ -497,19 +502,26 @@ static ULONG currentTimeMs(void)
 // correctPosition - Refresh s_curX/s_curY/s_screenW/s_screenH from
 // Intuition ground truth. Corrects any drift in the locally-accumulated
 // position and picks up screen-mode changes within one poll interval.
+//
+// Uses IntuitionBase->ActiveScreen (the frontmost screen), not
+// LockPubScreen(NULL) (the *default* public screen, normally Workbench
+// regardless of what's actually on top) - so edge detection tracks
+// whichever screen the user is really looking at (e.g. an IBrowse screen
+// at a different resolution than Workbench), not just Workbench.
 //===========================================================================
 
 static void correctPosition(void)
 {
-    struct Screen *scr = LockPubScreen(NULL);
+    ULONG ibLock = LockIBase(0);
+    struct Screen *scr = IntuitionBase->ActiveScreen;
     if (scr)
     {
         s_curX    = scr->MouseX;
         s_curY    = scr->MouseY;
         s_screenW = scr->Width;
         s_screenH = scr->Height;
-        UnlockPubScreen(NULL, scr);
     }
+    UnlockIBase(ibLock);
 }
 
 //===========================================================================

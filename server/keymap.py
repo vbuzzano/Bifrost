@@ -58,16 +58,6 @@ AMIGA_RAWKEY: dict = {
     Key.cmd:       0x66,  # Left Amiga
 }
 
-# Right Amiga has no single natural PC equivalent across layouts/preference.
-# Defaults to Right Windows; set_right_amiga_source(use_ctrl=True) switches
-# it to Right Ctrl instead (see keys.right_amiga in bifrost_config.json).
-def set_right_amiga_source(use_ctrl: bool) -> None:
-    AMIGA_RAWKEY.pop(Key.cmd_r, None)
-    AMIGA_RAWKEY.pop(Key.ctrl_r, None)
-    AMIGA_RAWKEY[Key.ctrl_r if use_ctrl else Key.cmd_r] = 0x67  # Right Amiga
-
-set_right_amiga_source(use_ctrl=False)
-
 # Keys that also update the qualifier flags byte
 QUAL_MAP: dict = {
     Key.shift:   0x01,  # QUAL_LSHIFT
@@ -78,7 +68,26 @@ QUAL_MAP: dict = {
     Key.alt:     0x08,
     Key.alt_r:   0x10,  # QUAL_RALT
     Key.alt_gr:  0x10,
+    # Left Amiga also holds the QUAL_AMIGA qualifier so AmigaOS shortcuts
+    # (e.g. Amiga+M) see it as held, not just a raw key press/release.
+    Key.cmd:     0x80,  # QUAL_AMIGA
 }
+
+# Right Amiga has no single natural PC equivalent across layouts/preference.
+# Defaults to Right Windows; set_right_amiga_source(use_ctrl=True) switches
+# it to Right Ctrl instead (see keys.right_amiga in bifrost_config.json).
+# Both the rawkey code AND the QUAL_AMIGA qualifier move to whichever PC
+# key is chosen as the source.
+def set_right_amiga_source(use_ctrl: bool) -> None:
+    AMIGA_RAWKEY.pop(Key.cmd_r, None)
+    AMIGA_RAWKEY.pop(Key.ctrl_r, None)
+    QUAL_MAP.pop(Key.cmd_r, None)
+    QUAL_MAP.pop(Key.ctrl_r, None)
+    source = Key.ctrl_r if use_ctrl else Key.cmd_r
+    AMIGA_RAWKEY[source] = 0x67  # Right Amiga
+    QUAL_MAP[source] = 0x80      # QUAL_AMIGA
+
+set_right_amiga_source(use_ctrl=False)
 
 
 def get_rawcode(key) -> 'int | None':

@@ -17,7 +17,7 @@
     "toggle": "scroll_lock",
     "emergency": "pause",
     "kill_modifier": "ctrl",
-    "right_amiga": "windows"
+    "right_amiga": "ctrl"
   },
   "debug": {
     "enabled": true,
