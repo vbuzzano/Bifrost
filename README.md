@@ -3,9 +3,9 @@
 ![alt text](assets/bifrost.png)
 
 
-**Remote Mouse & Keyboard Gateway for Vampire V4 / AmigaOS**
+**Remote Mouse & Keyboard Gateway for AmigaOS 3.x**
 
-Bifrost enables seamless mouse and keyboard forwarding from a PC to a Vampire V4 Amiga over TCP/IP. Control your Amiga remotely with smooth, low-latency input using a piecewise-linear acceleration curve and sub-pixel precision. Includes toggle switching to alternate between PC and Amiga input control.
+Bifrost enables seamless mouse and keyboard forwarding from a PC to a AmigaOs 3.x over TCP/IP. Control your Amiga remotely with smooth, low-latency input using a piecewise-linear acceleration curve and sub-pixel precision. Includes toggle switching to alternate between PC and Amiga input control.
 
 ## Features
 
@@ -205,6 +205,8 @@ If an app uses transparent drag or no drag visual, set `hz_drag = hz` — no lag
 
 **All tests on:**
 - Apollo Computer Vampire V4 (A6000, 68080 SAGA)
+- A1200 Pistorm
+- UAE A1200 
 - Configuration: 50 Hz polling, CURVE_LINEAR=2.0, CURVE_RATIO=0.5
 
 **Validated:**
@@ -266,17 +268,8 @@ Copyright (c) 2025 Vincent Buzzano (ReddoC)
 
 See LICENSE file for details.
 
-## Credits & Acknowledgments
-
-Bifrost is inspired by:
-- **VNC (Virtual Network Computing)** — Remote desktop architecture
-- **Synergy** — Cross-machine input forwarding
-- **Vampire V4 SAGA Hardware** — Apollo Team
-- **AmigaOS input.device** — Standard input event handling
-- **Python pynput** — Cross-platform input capture
-
 ---
 
-**Status:** Ready for production use on Vampire V4 with validated smooth mouse curve.
+**Status:** Ready for production.
 
 **Next:** Per-app profiles, Amiga→PC reverse control, GUI preferences editor — see [ROADMAP.md](ROADMAP.md)
