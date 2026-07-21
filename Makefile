@@ -15,14 +15,14 @@ SHELL = cmd.exe
 TOOLS_DIR = $(VENDOR_DIR)/tools
 
 # Source files
-SRC_Bifrost = $(SRC_DIR)/main.c
+SRC_Bifrost = $(SRC_DIR)/main.c $(SRC_DIR)/daemon.c
 ASM = $(wildcard $(SRC_DIR)/*.s)
 
 EXE_FILE = $(DIST_DIR)/$(PROGRAM_EXE_NAME)
 EXECMD_FILE = $(subst /,\,$(EXE_FILE))
 
 # Generated files
-OBJ_Bifrost = $(OBJ_DIR)/Bifrost.o
+OBJ_Bifrost = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC_Bifrost))
 ASM_Bifrost = $(ASM_DIR)/Bifrost.asm
 ASM_OBJS = $(patsubst $(SRC_DIR)/%.s,$(OBJ_DIR)/%.o,$(ASM))
 
@@ -154,7 +154,7 @@ $(EXE_FILE): $(OBJ_Bifrost) $(ASM_OBJS) | $(DIST_DIR)
 	$(CC) $(CFLAGS) $(AMIGA_FLAGS) $(LDFLAGS) -o $@ $^
 
 # Compile sources
-$(OBJ_Bifrost): $(SRC_Bifrost) | $(OBJ_DIR)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(AMIGA_FLAGS) -c -o $@ $<
 
 # Generate assembly files
