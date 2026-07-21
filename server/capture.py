@@ -160,6 +160,21 @@ MOUSE_INTERVAL = 1.0 / MOUSE_HZ
 
 _IS_WIN = platform.system() == 'Windows'
 
+if _IS_WIN:
+    # Without this, a non-DPI-aware process gets GetSystemMetrics() values
+    # virtualized/scaled down by Windows (e.g. 2560x1440 on a 3840x2160
+    # monitor at 150% scaling), while the low-level mouse hook still
+    # reports true physical pixel coordinates - the two disagree, and edge
+    # detection breaks in exactly that scaled-vs-physical gap. Must be set
+    # before any GetSystemMetrics() call below.
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()  # fallback (Windows 7/8)
+        except Exception:
+            pass
+
 
 def _get_screen_size():
     if _IS_WIN:
@@ -174,9 +189,32 @@ def _get_screen_size():
         return 1920, 1080
 
 
+def _get_virtual_desktop():
+    """Bounding box of ALL monitors combined (origin, width, height).
+    Mouse coordinates from pynput/the low-level hook span this whole area
+    on a multi-monitor setup, not just the primary monitor - PC-side edge
+    detection must use these bounds (not _get_screen_size(), which is
+    primary-monitor-only) or the trigger zone ends up sitting at the seam
+    between monitors instead of the true outer edge of the desktop."""
+    if _IS_WIN:
+        u32 = ctypes.windll.user32
+        x0 = u32.GetSystemMetrics(76)  # SM_XVIRTUALSCREEN
+        y0 = u32.GetSystemMetrics(77)  # SM_YVIRTUALSCREEN
+        vw = u32.GetSystemMetrics(78)  # SM_CXVIRTUALSCREEN
+        vh = u32.GetSystemMetrics(79)  # SM_CYVIRTUALSCREEN
+        return x0, y0, vw, vh
+    w, h = _get_screen_size()
+    return 0, 0, w, h
+
+
 _screen_w, _screen_h = _get_screen_size()
 _center_x = _screen_w // 2
 _center_y = _screen_h // 2
+
+# Virtual desktop bounds (all monitors) - used for PC-side edge detection
+# and re-entry cursor placement, so edges are the true outer boundary of
+# the whole multi-monitor desktop rather than a single-monitor width.
+_vscreen_x0, _vscreen_y0, _vscreen_w, _vscreen_h = _get_virtual_desktop()
 
 # (AMIGA_W/H kept for future screenmode handshake)
 
@@ -357,15 +395,21 @@ def _on_move_pc(x, y):
     dx = 0 if _last_x is None else x - _last_x
     dy = 0 if _last_y is None else y - _last_y
     _last_x, _last_y = x, y
+    # Normalize to the virtual desktop's own coordinate space (origin can be
+    # negative/nonzero with multiple monitors) so edge detection checks
+    # against the true outer boundary of the whole desktop, not just the
+    # primary monitor's width/height.
+    vx = x - _vscreen_x0
+    vy = y - _vscreen_y0
     # Suppress edge trigger while a button is held (dragging) - reuses the
     # resistance machine's own EDGE_NONE handling to force/keep state=NONE.
     effective_mask = EDGE_NONE if _pc_btn_held else _pc_edge_mask
     if DEBUG and effective_mask != EDGE_NONE and _pc_edge_resistance._state != 0:
         state_name = _RESIST_STATE_NAMES.get(_pc_edge_resistance._state, '?')
-        print(f'[edge] x={x} y={y} dx={dx:+d} dy={dy:+d} screen={_screen_w}x{_screen_h} '
+        print(f'[edge] x={vx} y={vy} dx={dx:+d} dy={dy:+d} vscreen={_vscreen_w}x{_vscreen_h} '
               f'mask=0x{effective_mask:02x} state={state_name}')
-    if _pc_edge_resistance.update(x, y, dx, dy, _screen_w, _screen_h, effective_mask):
-        percent = percent_along_edge(x, y, _screen_w, _screen_h, effective_mask)
+    if _pc_edge_resistance.update(vx, vy, dx, dy, _vscreen_w, _vscreen_h, effective_mask):
+        percent = percent_along_edge(vx, vy, _vscreen_w, _vscreen_h, effective_mask)
         _set_focus(FOCUS_AMIGA, entry_percent=percent)
 
 
@@ -540,8 +584,8 @@ def _do_set_focus(new_focus, entry_percent=None):
         _pc_edge_resistance.__init__()
         _pc_btn_held = False
         if entry_percent is not None:
-            target_x, target_y = position_from_percent(entry_percent, _screen_w, _screen_h, _pc_edge_mask)
-            _set_cursor_pos(target_x, target_y)
+            target_x, target_y = position_from_percent(entry_percent, _vscreen_w, _vscreen_h, _pc_edge_mask)
+            _set_cursor_pos(target_x + _vscreen_x0, target_y + _vscreen_y0)
         new_ml = mouse.Listener(on_move=_on_move_pc, on_click=_on_click_pc, suppress=False)
         kb_suppress = False
         label = 'PC'
@@ -605,7 +649,8 @@ def start(send_fn, connected_fn=None):
     if not _IS_WIN:
         _mouse_ctrl_ref[0] = mouse.Controller()
 
-    print(f'[Bifrost] Screen: {_screen_w}x{_screen_h}')
+    print(f'[Bifrost] Screen: {_screen_w}x{_screen_h}  '
+          f'(virtual desktop: {_vscreen_w}x{_vscreen_h} at origin {_vscreen_x0},{_vscreen_y0})')
     print('[Bifrost] Edge trigger: waiting for Amiga PKT_HELLO | Scroll Lock = toggle')
     print('[Bifrost] Focus: PC')
 
