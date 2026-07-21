@@ -132,15 +132,20 @@ static WORD  s_screenW = 640;
 static WORD  s_screenH = 512;
 static ULONG s_lastCorrectionMs = 0;
 
-// Edge resistance state machine (mirrors server/edge_resistance.py)
+// Edge resistance state machine (mirrors server/edge_resistance.py's
+// state machine logic, but MIN_PUSH_DELTA/PUSH_TIMEOUT_MS are deliberately
+// harder here than the PC side's MIN_PUSH_DELTA/PUSH_TIMEOUT_S - switching
+// back to PC via the Amiga edge was firing too easily compared to the PC
+// edge, so this side alone was tightened. Not a bug, don't "fix" back to
+// matching the PC values.
 #define RESIST_NONE      0
 #define RESIST_STARTED   1
 #define RESIST_ACTIVE    2
 #define RESIST_COOLDOWN  3
 
 #define EDGE_TOLERANCE   12    // px from edge to be "in zone"
-#define MIN_PUSH_DELTA   5     // px minimum coherent push to fire
-#define PUSH_TIMEOUT_MS  120UL // ms resistance window before a push can fire
+#define MIN_PUSH_DELTA   9     // px minimum coherent push to fire
+#define PUSH_TIMEOUT_MS  200UL // ms resistance window before a push can fire
 #define COOLDOWN_MS      500UL // ms after firing before it can fire again
 
 static UBYTE s_resistState      = RESIST_NONE;
