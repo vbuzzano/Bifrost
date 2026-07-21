@@ -32,9 +32,10 @@ struct DosLibrary *DOSBase;
 
 // Shared with daemon.c (see daemon.h's "extern" declarations) - set here
 // from CLI args, read by daemon() once launched via CreateNewProcTags.
-ULONG s_port      = Bifrost_DEFAULT_PORT;
-UBYTE s_pcEdge     = EDGE_NONE;
-UBYTE s_amigaEdge  = EDGE_NONE;
+ULONG s_port       = Bifrost_DEFAULT_PORT;
+UBYTE s_pcEdge      = EDGE_NONE;
+UBYTE s_amigaEdge   = EDGE_NONE;
+BOOL  s_cxRequested = FALSE;
 
 // Version string (read by AmigaOS version command)
 const char version[] = VERSION_STRING;
@@ -253,10 +254,11 @@ LONG _start(void)
     // Show usage on '?'
     if (*args == '?')
     {
-        Print("Usage: " PROGRAM_NAME " [port] [edge] | STATUS | STOP");
+        Print("Usage: " PROGRAM_NAME " [port] [edge] [CX] | STATUS | STOP");
         PrintF("  port   - TCP port (default: %ld, discovery: port+1)", (LONG)Bifrost_DEFAULT_PORT);
         Print("  edge   - TOP/BOTTOM/LEFT/RIGHT/TOPLEFT/TOPRIGHT/BOTTOMLEFT/BOTTOMRIGHT");
         Print("           PC edge that switches focus to Amiga (default: none = disabled)");
+        Print("  CX     - Register as a commodity (Exchange: Enable/Disable/Remove)");
         Print("  STATUS - query the running daemon's connection status");
         Print("  STOP   - disconnect and quit the running daemon");
         Print("  Server is discovered automatically via UDP broadcast.");
@@ -334,11 +336,11 @@ LONG _start(void)
         return RETURN_WARN;
     }
 
-    // Parse up to 2 whitespace-separated tokens, any order:
-    // a numeric port and/or an edge keyword.
+    // Parse up to 3 whitespace-separated tokens, any order: a numeric
+    // port, an edge keyword, and/or the "CX" flag.
     {
         LONG tok;
-        for (tok = 0; tok < 2; tok++)
+        for (tok = 0; tok < 3; tok++)
         {
             while (*args == ' ' || *args == '\t')
             {
@@ -363,6 +365,12 @@ LONG _start(void)
                 {
                     s_port = (ULONG)portNum;
                 }
+            }
+            else if ((args[0]|32)=='c' && (args[1]|32)=='x' &&
+                     (args[2]=='\0' || args[2]==' ' || args[2]=='\t' || args[2]=='\n'))
+            {
+                s_cxRequested = TRUE;
+                args += 2;
             }
             else
             {
@@ -413,6 +421,10 @@ LONG _start(void)
     {
         PrintF(PROGRAM_NAME ": edge switching enabled (PC edge=0x%02lx, Amiga edge=0x%02lx)",
                (LONG)s_pcEdge, (LONG)s_amigaEdge);
+    }
+    if (s_cxRequested)
+    {
+        Print(PROGRAM_NAME ": commodity requested (Exchange integration)");
     }
 
     CloseLibrary((struct Library *)DOSBase);

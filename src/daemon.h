@@ -123,6 +123,7 @@ struct BifrostMsg
 extern ULONG s_port;       // TCP port; discovery = s_port + 1
 extern UBYTE s_pcEdge;     // PC-side edge/corner that switches focus to Amiga
 extern UBYTE s_amigaEdge;  // Amiga-side mirror of s_pcEdge (switches back to PC)
+extern BOOL  s_cxRequested; // CLI "CX" token, or Workbench tooltype CX=YES
 
 //===========================================================================
 // daemon() - defined in daemon.c, launched by main.c via CreateNewProcTags
