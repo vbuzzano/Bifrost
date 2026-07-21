@@ -1,5 +1,8 @@
 # Bifrost
 
+![alt text](assets/bifrost.png)
+
+
 **Remote Mouse & Keyboard Gateway for Vampire V4 / AmigaOS**
 
 Bifrost enables seamless mouse and keyboard forwarding from a PC to a Vampire V4 Amiga over TCP/IP. Control your Amiga remotely with smooth, low-latency input using a piecewise-linear acceleration curve and sub-pixel precision. Includes toggle switching to alternate between PC and Amiga input control.
