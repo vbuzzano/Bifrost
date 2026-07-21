@@ -20,10 +20,12 @@ Long-term architecture and feature phases for Bifrost remote input gateway.
 **Goal:** Fix and extend keyboard support for better Amiga compatibility. Auto-negotiate TCP port.
 
 ### Phase 2.1: Special Key Remapping
-- Map PC Right Window → Amiga Left Amiga key
-- Map PC Right Ctrl → Amiga Left Amiga key (alternative)
-- Map PC INS → Amiga Help key
-- Map PC Left Alt → Amiga Left Alt (with proper ALT key handling)
+- ✅ Map PC Left Windows → Amiga Left Amiga key (fixed, not configurable)
+- ✅ Map PC Right Windows → Amiga Right Amiga key (default; `keys.right_amiga: "ctrl"` uses Right Ctrl instead)
+- ✅ Map PC INS → Amiga Help key
+- ✅ Left/Right Alt → Amiga Left/Right Alt (already working)
+- 🔜 Wire up Left/Right Amiga as a held qualifier (IEQUALIFIER_LCOMMAND/RCOMMAND) so AmigaOS shortcuts like Amiga+M recognize it, not just the raw key press/release
+- Capslock Hack ?
 - **Impact:** Full keyboard compatibility with Amiga layouts
 
 ### Phase 2.2: Auto-Discovery Port Negotiation

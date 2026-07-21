@@ -205,6 +205,20 @@ AmigaOS needs **predictable** mouse acceleration, not Windows' aggressive rampin
 - Prefer Shift instead of Ctrl: `"shift"`
 - An invalid value falls back to `"ctrl"` with a console warning.
 
+### `keys.right_amiga` (Right Amiga Key Source)
+
+**Default:** `"windows"`  
+**Supported values:** `windows`, `ctrl`
+
+**What it does:** Chooses which PC key sends the Amiga's Right Amiga key.
+
+- `"windows"` (default): Right Windows key (Right Cmd on Mac/Linux)
+- `"ctrl"`: Right Ctrl key instead
+
+**Note:** Left Amiga is fixed to Left Windows (Left Cmd) and isn't configurable. Right Amiga has no consistent PC/Mac equivalent, hence the option. An invalid value falls back to `"windows"` with a console warning.
+
+**Known limitation:** Holding Left/Right Amiga as a modifier for AmigaOS shortcuts (e.g. Amiga+M) isn't wired up yet — only the key press/release itself is forwarded, not the qualifier bit AmigaOS shortcuts check for. See [ROADMAP.md](../ROADMAP.md) Phase 2.1.
+
 ---
 
 ## Debug Configuration

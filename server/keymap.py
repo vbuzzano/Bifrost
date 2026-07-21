@@ -52,8 +52,21 @@ AMIGA_RAWKEY: dict = {
     Key.end:       0x1D,
     Key.page_up:   0x3F,
     Key.page_down: 0x1F,
-    Key.insert:    0x47,
+    # Amiga keyboards have no PC-style Insert key - PC INS sends Help instead.
+    Key.insert:    0x5F,  # Help
+    # Left Amiga: fixed to Left Windows (Left Cmd on Mac/Linux), no config.
+    Key.cmd:       0x66,  # Left Amiga
 }
+
+# Right Amiga has no single natural PC equivalent across layouts/preference.
+# Defaults to Right Windows; set_right_amiga_source(use_ctrl=True) switches
+# it to Right Ctrl instead (see keys.right_amiga in bifrost_config.json).
+def set_right_amiga_source(use_ctrl: bool) -> None:
+    AMIGA_RAWKEY.pop(Key.cmd_r, None)
+    AMIGA_RAWKEY.pop(Key.ctrl_r, None)
+    AMIGA_RAWKEY[Key.ctrl_r if use_ctrl else Key.cmd_r] = 0x67  # Right Amiga
+
+set_right_amiga_source(use_ctrl=False)
 
 # Keys that also update the qualifier flags byte
 QUAL_MAP: dict = {

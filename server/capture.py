@@ -31,7 +31,7 @@ from protocol import (pack_mouse_move, pack_mouse_btn, pack_key, pack_wheel,
                       BTN_LEFT, BTN_RIGHT, BTN_MIDDLE,
                       QUAL_LBUTTON, QUAL_RBUTTON, WHEEL_UP, WHEEL_DOWN,
                       QUAL_CTRL, QUAL_LSHIFT, QUAL_RSHIFT, QUAL_LALT, QUAL_RALT)
-from keymap import get_rawcode, QUAL_MAP
+from keymap import get_rawcode, QUAL_MAP, set_right_amiga_source
 from edge_resistance import (EDGE_NONE, EdgeResistance,
                               percent_along_edge, position_from_percent)
 
@@ -48,7 +48,8 @@ def _load_config():
         'network': {'port': 7890},
         'mouse': {'hz': 50, 'hz_drag': 15, 'speed': 1, 'delta_max': 80},
         'curve': {'linear': 2.0, 'ratio': 0.5},
-        'keys': {'toggle': 'scroll_lock', 'emergency': 'pause', 'kill_modifier': 'ctrl'},
+        'keys': {'toggle': 'scroll_lock', 'emergency': 'pause', 'kill_modifier': 'ctrl',
+                  'right_amiga': 'windows'},
         'debug': {'enabled': True, 'print_events': True}
     }
 
@@ -118,6 +119,15 @@ def _get_modifier_mask(name, default_name):
           f"(expected one of {sorted(_MODIFIER_MAP)}) - using default '{default_name}'")
     return _MODIFIER_MAP[default_name]
 
+def _get_right_amiga_source(name):
+    """'windows' (default) sends Right Amiga via Right Windows/Cmd;
+    'ctrl' sends it via Right Ctrl instead."""
+    if isinstance(name, str) and name.lower() in ('windows', 'ctrl'):
+        return name.lower()
+    print(f"[WARN] Invalid keys.right_amiga={name!r} in bifrost_config.json "
+          f"(expected 'windows' or 'ctrl') - using default 'windows'")
+    return 'windows'
+
 # Load configuration into module-level variables
 MOUSE_HZ      = _validate_positive_number(_CONFIG['mouse']['hz'], 'mouse.hz', 50)
 MOUSE_HZ_DRAG = _validate_positive_number(_CONFIG['mouse']['hz_drag'], 'mouse.hz_drag', 15)
@@ -138,6 +148,8 @@ if EMERGENCY_KEY == TOGGLE_KEY:
           f"forcing keys.emergency to '{_fallback_name}' instead")
     EMERGENCY_KEY = _KEY_MAP[_fallback_name]
 KILL_MODIFIER_MASK = _get_modifier_mask(_CONFIG['keys']['kill_modifier'], 'ctrl')
+RIGHT_AMIGA_SOURCE = _get_right_amiga_source(_CONFIG['keys'].get('right_amiga', 'windows'))
+set_right_amiga_source(use_ctrl=(RIGHT_AMIGA_SOURCE == 'ctrl'))
 DEBUG = _CONFIG['debug']['enabled']
 
 MOUSE_INTERVAL = 1.0 / MOUSE_HZ
