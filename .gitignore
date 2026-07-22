@@ -79,6 +79,8 @@ _*
 _*_
 *copy.*
 docs/superpowers/*
+.claude/*
+.github/*
 
 # VBCC temporaires
 vbcc.config.tmp
