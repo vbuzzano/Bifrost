@@ -307,6 +307,30 @@ def set_pc_edge(mask: int) -> None:
     if DEBUG:
         print(f'[Bifrost] PC edge trigger set to 0x{_pc_edge_mask:02x}')
 
+
+_amiga_cx_disabled = False  # True once a PKT_CX_STATE(disabled) arrives
+
+
+def set_amiga_cx_state(enabled: bool) -> None:
+    """Called by tcp_server.py when a PKT_CX_STATE arrives."""
+    global _amiga_cx_disabled
+    _amiga_cx_disabled = not enabled
+    if enabled:
+        print('[Bifrost] Amiga commodity enabled')
+        return
+    print('[Bifrost] Amiga commodity disabled - forcing PC focus')
+    with _focus_lock:
+        cur = _focus
+    if cur == FOCUS_AMIGA:
+        threading.Thread(target=_do_set_focus, args=(FOCUS_PC,), daemon=True).start()
+
+
+def _reset_amiga_cx_state() -> None:
+    """Called on each new Amiga connection - avoids a stale disabled state
+    leaking from a previous connection (same reasoning as set_pc_edge(0))."""
+    global _amiga_cx_disabled
+    _amiga_cx_disabled = False
+
 # ---------------------------------------------------------------------------
 # Mouse flush timer
 # ---------------------------------------------------------------------------
@@ -620,6 +644,9 @@ def _do_set_focus(new_focus, entry_percent=None):
 def _set_focus(new_focus, entry_percent=None):
     if new_focus == FOCUS_AMIGA and not _connected_fn():
         print('[Bifrost] Not connected - cannot switch to Amiga mode')
+        return
+    if new_focus == FOCUS_AMIGA and _amiga_cx_disabled:
+        print('[Bifrost] Amiga commodity disabled via Exchange - cannot switch to Amiga mode')
         return
     threading.Thread(target=_do_set_focus, args=(new_focus, entry_percent), daemon=True).start()
 

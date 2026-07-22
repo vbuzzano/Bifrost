@@ -119,9 +119,24 @@ static struct InputEvent s_eventBuf;
 static struct MsgPort       *s_TimerPort = NULL;
 static struct timerequest   *s_TimerReq  = NULL;
 
-// Control port (STATUS/STOP) and the connection state it reports.
+// Control port (STATUS/STOP/GET_CONFIG/SET_CONFIG) and the connection
+// state it reports.
 static struct MsgPort *s_ControlPort = NULL;
 static BOOL            s_connected   = FALSE;
+
+// Commodity-enabled gate, driven exclusively by BifrostCX via
+// BMSG_CMD_SET_CONFIG (see setConfig()) - daemon.c has no commodities.library
+// code of its own. FALSE means "fully paused": the entire packet-dispatch
+// switch in the inner loop is skipped (no injection, no position tracking,
+// no edge resistance) so the tracked cursor position can never drift out of
+// sync with the real one while paused.
+static BOOL s_cxEnabled = TRUE;
+
+// Socket the inner loop currently has open, needed by setConfig() to send
+// an immediate PKT_CX_STATE update if cxEnabled changes while connected.
+// -1 when not connected (setConfig() just updates the flag silently then;
+// the next connection's initial PKT_CX_STATE picks up the correct value).
+static LONG s_cxTcpSock = -1;
 
 // Amiga-side cursor position estimate (updated from every injected delta)
 // and the last known screen dimensions, both refreshed by correctPosition()
@@ -620,9 +635,38 @@ static void daemonCleanup(LONG sock)
 }
 
 //===========================================================================
-// processControlMessages - Drain and reply to pending STATUS/STOP requests
-// from sendBifrostMessage(). Called from both daemon() loops whenever the
-// control port's signal bit is set.
+// setConfig - Apply a BifrostConfig sent via BMSG_CMD_SET_CONFIG. Updates
+// everything except cfg->port (immutable at runtime - a port change needs
+// a restart, reported by the caller comparing cfg->port against the
+// GET_CONFIG it read first; setConfig() itself doesn't need to know or
+// care whether the port matched).
+//===========================================================================
+
+static void setConfig(const struct BifrostConfig *cfg)
+{
+    s_pcEdge    = cfg->pcEdge;
+    s_amigaEdge = oppositeEdge(s_pcEdge);
+
+    if (cfg->cxEnabled != s_cxEnabled)
+    {
+        s_cxEnabled = cfg->cxEnabled;
+        if (s_cxTcpSock >= 0)
+        {
+            UBYTE cxPkt[PKT_SIZE];
+            LONG  i;
+            for (i = 0; i < PKT_SIZE; i++) cxPkt[i] = 0;
+            cxPkt[0] = PKT_CX_STATE;
+            cxPkt[6] = s_cxEnabled ? 1 : 0;
+            send(s_cxTcpSock, (APTR)cxPkt, PKT_SIZE, 0);
+        }
+    }
+}
+
+//===========================================================================
+// processControlMessages - Drain and reply to pending STATUS/STOP/
+// GET_CONFIG/SET_CONFIG requests from sendBifrostMessage()/sendConfigMessage().
+// Called from both daemon() loops whenever the control port's signal bit is
+// set.
 //===========================================================================
 
 static void processControlMessages(BOOL *quitFlag)
@@ -640,6 +684,26 @@ static void processControlMessages(BOOL *quitFlag)
 
             case BMSG_CMD_GET_STATUS:
                 ctlMsg->result = s_connected ? 1 : 0;
+                break;
+
+            case BMSG_CMD_GET_CONFIG:
+                ctlMsg->config.port      = s_port;
+                ctlMsg->config.pcEdge    = s_pcEdge;
+                ctlMsg->config.cxEnabled = s_cxEnabled;
+                ctlMsg->result = 0;
+                break;
+
+            case BMSG_CMD_SET_CONFIG:
+                // result: 0 if the caller's port matched what's actually
+                // running (or the caller didn't care), 1 if it differs -
+                // config is still applied either way (port itself is
+                // never touched by setConfig()), a restart is only needed
+                // to change the port. Callers that care about the actual
+                // running port should GET_CONFIG first and compare
+                // themselves - this result is just a convenience so a
+                // plain CLI relaunch doesn't need a separate round-trip.
+                ctlMsg->result = (ctlMsg->config.port == s_port) ? 0 : 1;
+                setConfig(&ctlMsg->config);
                 break;
 
             default:
@@ -677,7 +741,8 @@ void daemon(void)
 
     if (!daemonInit())
     {
-        goto done;
+        daemonCleanup(udpSock);
+        return;
     }
 
     portSig = 1L << s_ControlPort->mp_SigBit;
@@ -689,7 +754,8 @@ void daemon(void)
     if (udpSock < 0)
     {
         Print(PROGRAM_NAME ": UDP socket() failed");
-        goto done;
+        daemonCleanup(udpSock);
+        return;
     }
 
     reuseVal = 1;
@@ -706,7 +772,8 @@ void daemon(void)
     {
         PrintF(PROGRAM_NAME ": bind UDP port %ld failed (err=%ld)",
                discPort, (LONG)Errno());
-        goto done;
+        daemonCleanup(udpSock);
+        return;
     }
 
     Print(PROGRAM_NAME ": waiting for server... (CTRL+C to quit)");
@@ -805,7 +872,8 @@ void daemon(void)
         }
 
         Print(PROGRAM_NAME ": connected - CTRL+C to quit");
-        s_connected = TRUE;
+        s_connected  = TRUE;
+        s_cxTcpSock  = tcpSock;
 
         // Fresh per-connection state: resistance machine, position/screen
         // ground truth, and the correction clock.
@@ -820,6 +888,16 @@ void daemon(void)
             helloPkt[0] = PKT_HELLO;
             helloPkt[6] = s_pcEdge;
             send(tcpSock, (APTR)helloPkt, PKT_SIZE, 0);
+        }
+
+        // Announce current commodity-enabled state too, in case it was
+        // set (via BMSG_CMD_SET_CONFIG) while disconnected.
+        {
+            UBYTE cxPkt[PKT_SIZE];
+            for (i = 0; i < PKT_SIZE; i++) cxPkt[i] = 0;
+            cxPkt[0] = PKT_CX_STATE;
+            cxPkt[6] = s_cxEnabled ? 1 : 0;
+            send(tcpSock, (APTR)cxPkt, PKT_SIZE, 0);
         }
 
         // =====================================================
@@ -873,6 +951,15 @@ void daemon(void)
                 }
 
                 if (disconnected) break;
+
+                // Disabled via SET_CONFIG: packet already consumed above
+                // (required to keep the connection alive), but nothing is
+                // done with it - no injection, no position tracking, no
+                // edge-resistance. See s_cxEnabled's declaration comment.
+                if (!s_cxEnabled)
+                {
+                    continue;
+                }
 
                 // Dispatch packet by type
                 switch (pkt[0])
@@ -1030,6 +1117,7 @@ void daemon(void)
 
         // TCP session ended - close socket, loop back to discovery
         s_connected = FALSE;
+        s_cxTcpSock = -1;
         CloseSocket(tcpSock);
         tcpSock = -1;
         if (!quit)
@@ -1038,7 +1126,6 @@ void daemon(void)
         }
     }
 
-done:
     if (tcpSock >= 0 && SocketBase) CloseSocket(tcpSock);
     daemonCleanup(udpSock);
 }

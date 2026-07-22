@@ -69,12 +69,33 @@ def _acquire_single_instance_lock() -> bool:
         return True
 
 
-def _create_icon(connected: bool) -> 'Image.Image':
-    """Create a 16x16 icon: green if connected, grey if disconnected."""
+_SYSTRAY_COLORS = {
+    'connected': (0, 200, 0, 255),
+    'disabled': (230, 150, 0, 255),
+    'disconnected': (128, 128, 128, 255),
+}
+
+_SYSTRAY_LABELS = {
+    'connected': 'Amiga Connected',
+    'disabled': 'Amiga Disabled',
+    'disconnected': 'Amiga Disconnected',
+}
+
+
+def _systray_state(conn_active: bool, cx_disabled: bool) -> str:
+    """Pure state computation, kept separate from the polling loop below
+    for testability. 'disabled' means connected but CX-disabled on the
+    Amiga side (see capture.set_amiga_cx_state)."""
+    if not conn_active:
+        return 'disconnected'
+    return 'disabled' if cx_disabled else 'connected'
+
+
+def _create_icon(state: str) -> 'Image.Image':
+    """Create a 16x16 icon: green=connected, orange=disabled, grey=disconnected."""
     img = Image.new('RGBA', (16, 16), color=(0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    color = (0, 200, 0, 255) if connected else (128, 128, 128, 255)
-    draw.ellipse([2, 2, 14, 14], fill=color)
+    draw.ellipse([2, 2, 14, 14], fill=_SYSTRAY_COLORS[state])
     return img
 
 
@@ -83,25 +104,25 @@ class _SystrayController:
         self.srv = srv
         self.icon = None
         self.stop_event = threading.Event()
-        self._last_connected = None
+        self._last_state = None
 
-    def _menu_for(self, connected: bool) -> 'Menu':
-        status_text = "Amiga Connected" if connected else "Amiga Disconnected"
+    def _menu_for(self, state: str) -> 'Menu':
         return Menu(
-            MenuItem(status_text, lambda: None, enabled=False),
+            MenuItem(_SYSTRAY_LABELS[state], lambda: None, enabled=False),
             MenuItem("Quit", self._quit)
         )
 
     def _update_loop(self) -> None:
-        """Update icon/menu only when connection state actually changes."""
+        """Update icon/menu only when state actually changes."""
         while not self.stop_event.is_set():
             with self.srv._lock:
-                connected = self.srv._conn is not None
+                conn_active = self.srv._conn is not None
+            state = _systray_state(conn_active, capture._amiga_cx_disabled)
 
-            if connected != self._last_connected:
-                self._last_connected = connected
-                self.icon.icon = _create_icon(connected)
-                self.icon.menu = self._menu_for(connected)
+            if state != self._last_state:
+                self._last_state = state
+                self.icon.icon = _create_icon(state)
+                self.icon.menu = self._menu_for(state)
 
             time.sleep(0.5)
 
@@ -118,8 +139,8 @@ class _SystrayController:
         in the background."""
         self.icon = Icon(
             "Bifrost",
-            icon=_create_icon(connected=False),
-            menu=self._menu_for(connected=False)
+            icon=_create_icon('disconnected'),
+            menu=self._menu_for('disconnected')
         )
         self.icon.run_detached()
 
