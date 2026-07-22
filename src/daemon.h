@@ -49,6 +49,13 @@
                                  // Amiga via an edge trigger. byte[6] =
                                  // percent (0-255) along s_amigaEdge to
                                  // place the cursor at; ignored for corners.
+#define PKT_CX_STATE     0x08    // Amiga -> Server: commodity enabled/
+                                 // disabled state. byte[6] = 1 (enabled)
+                                 // or 0 (disabled). Sent by daemon.c;
+                                 // s_cxEnabled is driven by BifrostCX via
+                                 // BMSG_CMD_SET_CONFIG, not by any code in
+                                 // this binary reading commodities.library
+                                 // directly.
 #define PKT_PING         0xFF    // keepalive
 
 // Button IDs (byte 6 in PKT_MOUSE_BTN)
@@ -95,15 +102,30 @@
 
 #define BMSG_CMD_QUIT        0   // Stop daemon (disconnects from PC first)
 #define BMSG_CMD_GET_STATUS  1   // Query connection status
+#define BMSG_CMD_GET_CONFIG  2   // Read current port/edge/cx-enabled
+#define BMSG_CMD_SET_CONFIG  3   // Apply new edge/cx-enabled (port ignored -
+                                 // immutable at runtime, needs a restart)
 
 #define CONTROL_REPLY_TIMEOUT 2  // seconds to wait for daemon reply
 
+// Configurable daemon state. GET_CONFIG copies the daemon's current values
+// into this; SET_CONFIG's setConfig() (daemon.c) applies every field
+// except port. New settings land here, not as new BMSG_CMD_* values or new
+// CLI arguments - see design spec for the rationale.
+struct BifrostConfig
+{
+    ULONG port;       // informational on GET_CONFIG; ignored by setConfig()
+    UBYTE pcEdge;      // live-updatable
+    BOOL  cxEnabled;   // live-updatable
+};
+
 struct BifrostMsg
 {
-    struct Message msg;
-    UBYTE          command;  // BMSG_CMD_*
-    ULONG          value;    // command parameter (unused for now)
-    ULONG          result;   // 0xFFFFFFFF = error; else command-specific
+    struct Message        msg;
+    UBYTE                 command;  // BMSG_CMD_*
+    ULONG                 value;    // command parameter (unused for now)
+    ULONG                 result;   // 0xFFFFFFFF = error; else command-specific
+    struct BifrostConfig  config;   // used by GET_CONFIG/SET_CONFIG only
 };
 
 //===========================================================================
@@ -123,7 +145,22 @@ struct BifrostMsg
 extern ULONG s_port;       // TCP port; discovery = s_port + 1
 extern UBYTE s_pcEdge;     // PC-side edge/corner that switches focus to Amiga
 extern UBYTE s_amigaEdge;  // Amiga-side mirror of s_pcEdge (switches back to PC)
-extern BOOL  s_cxRequested; // CLI "CX" token, or Workbench tooltype CX=YES
+
+//===========================================================================
+// oppositeEdge - Mirror an edge/corner bitmask: TOP<->BOTTOM, LEFT<->RIGHT.
+// Shared between main.c (initial CLI parse) and daemon.c (setConfig(),
+// which must recompute s_amigaEdge whenever pcEdge changes live).
+//===========================================================================
+
+static inline UBYTE oppositeEdge(UBYTE edge)
+{
+    UBYTE result = 0;
+    if (edge & EDGE_TOP)    result |= EDGE_BOTTOM;
+    if (edge & EDGE_BOTTOM) result |= EDGE_TOP;
+    if (edge & EDGE_LEFT)   result |= EDGE_RIGHT;
+    if (edge & EDGE_RIGHT)  result |= EDGE_LEFT;
+    return result;
+}
 
 //===========================================================================
 // daemon() - defined in daemon.c, launched by main.c via CreateNewProcTags
