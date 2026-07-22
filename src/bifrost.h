@@ -1,7 +1,7 @@
 /*
  * Bifrost - shared declarations between main.c (CLI entry point) and
- * daemon.c (background daemon: discovery, TCP connection, event
- * injection). See daemon.c's file header for the daemon architecture.
+ * bifrost.c (background daemon: discovery, TCP connection, event
+ * injection). See bifrost.c's file header for the daemon architecture.
  *
  * (c) 2026 Vincent Buzzano - MIT License
  */
@@ -51,7 +51,7 @@
                                  // place the cursor at; ignored for corners.
 #define PKT_CX_STATE     0x08    // Amiga -> Server: commodity enabled/
                                  // disabled state. byte[6] = 1 (enabled)
-                                 // or 0 (disabled). Sent by daemon.c;
+                                 // or 0 (disabled). Sent by bifrost.c;
                                  // s_cxEnabled is driven by BifrostCX via
                                  // BMSG_CMD_SET_CONFIG, not by any code in
                                  // this binary reading commodities.library
@@ -109,7 +109,7 @@
 #define CONTROL_REPLY_TIMEOUT 2  // seconds to wait for daemon reply
 
 // Configurable daemon state. GET_CONFIG copies the daemon's current values
-// into this; SET_CONFIG's setConfig() (daemon.c) applies every field
+// into this; SET_CONFIG's setConfig() (bifrost.c) applies every field
 // except port. New settings land here, not as new BMSG_CMD_* values or new
 // CLI arguments - see design spec for the rationale.
 struct BifrostConfig
@@ -137,7 +137,7 @@ struct BifrostMsg
 
 //===========================================================================
 // Shared state - set by main.c's _start() after CLI parsing, read by
-// daemon.c's daemon(). Both run in the same program image; daemon() is a
+// bifrost.c's daemon(). Both run in the same program image; daemon() is a
 // separate Process/Task (via CreateNewProcTags) but shares the same
 // global data segment, so this is a plain shared variable, not IPC.
 //===========================================================================
@@ -148,7 +148,7 @@ extern UBYTE s_amigaEdge;  // Amiga-side mirror of s_pcEdge (switches back to PC
 
 //===========================================================================
 // oppositeEdge - Mirror an edge/corner bitmask: TOP<->BOTTOM, LEFT<->RIGHT.
-// Shared between main.c (initial CLI parse) and daemon.c (setConfig(),
+// Shared between main.c (initial CLI parse) and bifrost.c (setConfig(),
 // which must recompute s_amigaEdge whenever pcEdge changes live).
 //===========================================================================
 
@@ -163,7 +163,7 @@ static inline UBYTE oppositeEdge(UBYTE edge)
 }
 
 //===========================================================================
-// daemon() - defined in daemon.c, launched by main.c via CreateNewProcTags
+// daemon() - defined in bifrost.c, launched by main.c via CreateNewProcTags
 //===========================================================================
 
 void daemon(void);

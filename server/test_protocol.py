@@ -60,5 +60,5 @@ def test_pack_cx_state_disabled():
 
 
 def test_cx_state_packet_type_value_matches_design():
-    # Must stay in sync with src/daemon.h PKT_CX_STATE
+    # Must stay in sync with src/bifrost.h PKT_CX_STATE
     assert protocol.PKT_CX_STATE == 0x08
