@@ -19,7 +19,7 @@
 // --- Library bases first (VBCC inline pragma requirement) ---
 // SysBase/DOSBase are defined in main.c (single definition - vlink does
 // not merge duplicate tentative definitions across objects); the rest
-// are bifrost.c-only (main.c never touches sockets/intuition).
+// are daemon.c-only (main.c never touches sockets/intuition).
 extern struct ExecBase *SysBase;
 extern struct DosLibrary *DOSBase;
 struct Library        *SocketBase;
@@ -59,6 +59,7 @@ struct hostent;
 #include <intuition/intuitionbase.h>
 #include <proto/intuition.h>
 
+#include "daemon.h"
 #include "bifrost.h"
 
 //===========================================================================
@@ -125,7 +126,7 @@ static struct MsgPort *s_ControlPort = NULL;
 static BOOL            s_connected   = FALSE;
 
 // Commodity-enabled gate, driven exclusively by BifrostCX via
-// BMSG_CMD_SET_CONFIG (see setConfig()) - bifrost.c has no commodities.library
+// BMSG_CMD_SET_CONFIG (see setConfig()) - daemon.c has no commodities.library
 // code of its own. FALSE means "fully paused": the entire packet-dispatch
 // switch in the inner loop is skipped (no injection, no position tracking,
 // no edge resistance) so the tracked cursor position can never drift out of

@@ -2,8 +2,8 @@
  * Bifrost - Amiga Mouse and Keyboard Controller (CLI entry point)
  *
  * Parses CLI args (port/edge, or STATUS/STOP to control an already-running
- * instance), then launches bifrost.c's daemon() as a detached background
- * process. See bifrost.c for the actual UDP discovery / TCP connection /
+ * instance), then launches main.c's daemon() as a detached background
+ * process. See main.c for the actual UDP discovery / TCP connection /
  * event injection loop.
  *
  * Usage: Bifrost [port] [edge] | STATUS | STOP
@@ -25,12 +25,13 @@ struct DosLibrary *DOSBase;
 #include <devices/timer.h>
 
 #include "bifrost.h"
+#include "daemon.h"
 
 //===========================================================================
 // Global state
 //===========================================================================
 
-// Shared with bifrost.c (see bifrost.h's "extern" declarations) - set here
+// Shared with main.c (see bifrost.h's "extern" declarations) - set here
 // from CLI args, read by daemon() once launched via CreateNewProcTags.
 ULONG s_port       = Bifrost_DEFAULT_PORT;
 UBYTE s_pcEdge      = EDGE_NONE;

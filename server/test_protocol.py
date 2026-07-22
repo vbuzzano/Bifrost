@@ -19,7 +19,7 @@ def test_pack_edge_trigger_default_percent_is_zero():
 
 
 def test_focus_enter_packet_type_value_matches_design():
-    # Must stay in sync with src/Bifrost.c PKT_FOCUS_ENTER
+    # Must stay in sync with src/daemon.c PKT_FOCUS_ENTER
     assert protocol.PKT_FOCUS_ENTER == 0x07
 
 
@@ -43,7 +43,7 @@ def test_pack_edge_trigger_byte_layout():
 
 
 def test_packet_type_values_match_design():
-    # Must stay in sync with src/Bifrost.c PKT_HELLO / PKT_EDGE_TRIGGER
+    # Must stay in sync with src/daemon.c PKT_HELLO / PKT_EDGE_TRIGGER
     assert protocol.PKT_HELLO == 0x05
     assert protocol.PKT_EDGE_TRIGGER == 0x06
 

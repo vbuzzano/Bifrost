@@ -48,7 +48,7 @@ WHEEL_DOWN = 1
 PKT_UP   = 0
 PKT_DOWN = 1
 
-# Qualifier flags (must match Bifrost.c QUAL_*)
+# Qualifier flags (must match daemon.c QUAL_*)
 QUAL_LSHIFT   = 0x01
 QUAL_RSHIFT   = 0x02
 QUAL_CTRL     = 0x04
