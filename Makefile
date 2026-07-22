@@ -16,13 +16,17 @@ TOOLS_DIR = $(VENDOR_DIR)/tools
 
 # Source files
 SRC_Bifrost = $(SRC_DIR)/main.c $(SRC_DIR)/daemon.c
+SRC_BifrostCX = $(SRC_DIR)/bifrostcx.c
 ASM = $(wildcard $(SRC_DIR)/*.s)
 
 EXE_FILE = $(DIST_DIR)/$(PROGRAM_EXE_NAME)
+EXE_FILE_CX = $(DIST_DIR)/$(PROGRAM_EXE_NAME)CX
 EXECMD_FILE = $(subst /,\,$(EXE_FILE))
+EXECMD_FILE_CX = $(subst /,\,$(EXE_FILE_CX))
 
 # Generated files
 OBJ_Bifrost = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC_Bifrost))
+OBJ_BifrostCX = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC_BifrostCX))
 ASM_Bifrost = $(ASM_DIR)/Bifrost.asm
 ASM_OBJS = $(patsubst $(SRC_DIR)/%.s,$(OBJ_DIR)/%.o,$(ASM))
 
@@ -85,7 +89,7 @@ dirs:
 	@if not exist "$(DIST_DIR)" mkdir "$(DIST_DIR)"
 
 
-build: $(EXE_FILE) #$(ASM_Bifrost)
+build: $(EXE_FILE) $(EXE_FILE_CX) #$(ASM_Bifrost)
 rebuild: clean build
 
 build-release:
@@ -112,11 +116,12 @@ clean:
 	@echo Cleaned build files while preserving directory structure
 
 # --- Upload to Vampire V4 ---
-upload: $(EXE_FILE)
+upload: $(EXE_FILE) $(EXE_FILE_CX)
 	@echo ------------------------------------------------------------------
 	@echo Upload to V4 host: $(APOLLO_V4_HOST)
 	@echo ------------------------------------------------------------------
 	@$(ACP) $(EXECMD_FILE) "$(APOLLO_V4_HOST)"
+	@$(ACP) $(EXECMD_FILE_CX) "$(APOLLO_V4_HOST)"
 #	@$(ACP) $(GUIDEPATH) "$(APOLLO_V4_HOST)"
 #	@$(ACP) $(INSTALLPATH) "$(APOLLO_V4_HOST)"
 #	@$(ACP) $(GDB) "$(APOLLO_V4_HOST)"
@@ -129,10 +134,10 @@ help:
 	@echo Bifrost Makefile
 	@echo ------------------------------------------------------------------
 	@echo Available targets:
-	@echo   build           - Build program: Bifrost
-	@echo   rebuild         - Clean and build Bifrost
+	@echo   build           - Build programs: Bifrost, BifrostCX
+	@echo   rebuild         - Clean and build Bifrost, BifrostCX
 	@echo   clean           - Remove all build and dist files
-	@echo   upload          - Upload Bifrost to Vampire V4
+	@echo   upload          - Upload Bifrost and BifrostCX to Vampire V4
 	@echo   build-release   - Build release version of Bifrost
 	@echo   rebuild-release - Clean and build release version of Bifrost
 	@echo   release         - Build Bifrost LHA release (optimized, stripped)
@@ -151,6 +156,9 @@ $(BUILD_DIR) $(DIST_DIR) $(OBJ_DIR) $(ASM_DIR):
 
 # Link the executables
 $(EXE_FILE): $(OBJ_Bifrost) $(ASM_OBJS) | $(DIST_DIR)
+	$(CC) $(CFLAGS) $(AMIGA_FLAGS) $(LDFLAGS) -o $@ $^
+
+$(EXE_FILE_CX): $(OBJ_BifrostCX) | $(DIST_DIR)
 	$(CC) $(CFLAGS) $(AMIGA_FLAGS) $(LDFLAGS) -o $@ $^
 
 # Compile sources
