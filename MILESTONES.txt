@@ -1,6 +1,9 @@
 Bifrost - Milestones
 ===================
 
+MILESTONE: BifrostCX split + refactoring - 23.07.2026
+e56d459fb3ebb0f82cd202c25edd6ee42ffaa32f
+
 MILESTONE: Edge Working - 20.07.2026
 d88a62dd2453d68befac9ce37f75de414720090b
 
