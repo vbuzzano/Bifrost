@@ -14,6 +14,7 @@
 struct ExecBase       *SysBase;
 struct DosLibrary     *DOSBase;
 struct IntuitionBase  *IntuitionBase;
+struct Library        *CxBase;
 
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -30,6 +31,8 @@ struct IntuitionBase  *IntuitionBase;
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <proto/intuition.h>
+#include <libraries/commodities.h>
+#include <proto/commodities.h>
 
 #include "daemon.h"
 
@@ -413,6 +416,140 @@ static struct MsgPort *ensureBifrostRunning(ULONG port, UBYTE edge, BOOL quiet)
 }
 
 //===========================================================================
+// registerCommodity - Open commodities.library and create the broker.
+// nb_Unique = NBU_UNIQUE doubles as BifrostCX's own singleton check - a
+// second instance simply fails here (another "Bifrost"-named broker
+// already exists) rather than needing a separate named port. No
+// CxCustom/hotkey chain - the broker's own nb_Port already receives every
+// CXM_COMMAND message this program cares about (Enable/Disable/Kill)
+// directly.
+//===========================================================================
+
+static CxObj *registerCommodity(struct MsgPort **outCxPort)
+{
+    struct NewBroker nb;
+    LONG             i;
+    LONG             error = 0;
+    CxObj           *broker;
+
+    CxBase = OpenLibrary("commodities.library", 37);
+    if (!CxBase)
+    {
+        return NULL;
+    }
+
+    *outCxPort = CreateMsgPort();
+    if (!*outCxPort)
+    {
+        CloseLibrary(CxBase);
+        CxBase = NULL;
+        return NULL;
+    }
+
+    for (i = 0; i < (LONG)sizeof(nb); i++) ((UBYTE *)&nb)[i] = 0;
+    nb.nb_Version = NB_VERSION;
+    nb.nb_Name    = PROGRAM_NAME;
+    nb.nb_Title   = PROGRAM_NAME;
+    nb.nb_Descr   = PROGRAM_DESC_SHORT;
+    nb.nb_Unique  = NBU_UNIQUE;
+    nb.nb_Flags   = 0;
+    nb.nb_Pri     = 0;
+    nb.nb_Port    = *outCxPort;
+
+    broker = CxBroker(&nb, &error);
+    if (!broker)
+    {
+        DeleteMsgPort(*outCxPort);
+        *outCxPort = NULL;
+        CloseLibrary(CxBase);
+        CxBase = NULL;
+        return NULL;
+    }
+
+    ActivateCxObj(broker, 1L);
+    return broker;
+}
+
+//===========================================================================
+// runCommodityLoop - Wait on the commodity signal only (no sockets, no
+// timer, no input.device). Relays Enable/Disable to Bifrost via
+// GET_CONFIG+SET_CONFIG; Remove/Kill quits Bifrost too (see design spec -
+// otherwise the commodity stops meaning anything), then returns so
+// _start() can clean up and exit. A plain external kill/break of this
+// process (outside of Exchange) never reaches this function's body again
+// and so never sends Bifrost anything - only a received CXCMD_KILL does.
+//===========================================================================
+
+static void runCommodityLoop(struct MsgPort *cxPort, CxObj *broker, struct MsgPort *bifrostPort)
+{
+    ULONG cxSig = 1L << cxPort->mp_SigBit;
+    BOOL  quit  = FALSE;
+
+    while (!quit)
+    {
+        ULONG signals = Wait(cxSig | SIGBREAKF_CTRL_C);
+
+        if (signals & SIGBREAKF_CTRL_C)
+        {
+            break;
+        }
+
+        if (signals & cxSig)
+        {
+            CxMsg *msg;
+            while ((msg = (CxMsg *)GetMsg(cxPort)) != NULL)
+            {
+                ULONG msgId   = CxMsgID(msg);
+                ULONG msgType = CxMsgType(msg);
+                ReplyMsg((struct Message *)msg);
+
+                if (msgType != CXM_COMMAND) continue;
+
+                switch (msgId)
+                {
+                    case CXCMD_DISABLE:
+                    {
+                        struct BifrostConfig cfg;
+                        if (sendConfigMessage(bifrostPort, BMSG_CMD_GET_CONFIG, &cfg) != 0xFFFFFFFF)
+                        {
+                            cfg.cxEnabled = FALSE;
+                            sendConfigMessage(bifrostPort, BMSG_CMD_SET_CONFIG, &cfg);
+                        }
+                        ActivateCxObj(broker, 0L);
+                        break;
+                    }
+
+                    case CXCMD_ENABLE:
+                    {
+                        struct BifrostConfig cfg;
+                        if (sendConfigMessage(bifrostPort, BMSG_CMD_GET_CONFIG, &cfg) != 0xFFFFFFFF)
+                        {
+                            cfg.cxEnabled = TRUE;
+                            sendConfigMessage(bifrostPort, BMSG_CMD_SET_CONFIG, &cfg);
+                        }
+                        ActivateCxObj(broker, 1L);
+                        break;
+                    }
+
+                    case CXCMD_KILL:
+                    case CXCMD_UNIQUE:
+                    {
+                        struct BifrostConfig dummy;
+                        dummy.port = 0; dummy.pcEdge = 0; dummy.cxEnabled = FALSE;
+                        sendConfigMessage(bifrostPort, BMSG_CMD_QUIT, &dummy);
+                        quit = TRUE;
+                        break;
+                    }
+
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+}
+
+//===========================================================================
 // _start() - Entry point. Workbench-only: reads PORT/EDGE tooltypes from
 // its own icon. If launched from a CLI (pr_CLI != NULL), prints a short
 // message and exits - not a supported path, just a safety net.
@@ -498,8 +635,27 @@ LONG _start(void)
         {
             exitCode = RETURN_FAIL;
         }
-        // Task 7 fills in: register the commodity broker using bifrostPort
-        // and run the message loop.
+        else
+        {
+            struct MsgPort *myCxPort = NULL;
+            CxObj          *broker   = registerCommodity(&myCxPort);
+
+            if (!broker)
+            {
+                Print(PROGRAM_NAME "CX: already running (a broker named \""
+                      PROGRAM_NAME "\" already exists)");
+                exitCode = RETURN_WARN;
+            }
+            else
+            {
+                runCommodityLoop(myCxPort, broker, bifrostPort);
+
+                DeleteCxObjAll(broker);
+                DeleteMsgPort(myCxPort);
+                CloseLibrary(CxBase);
+                CxBase = NULL;
+            }
+        }
     }
 
     if (wbMsg)
