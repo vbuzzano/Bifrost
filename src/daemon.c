@@ -741,7 +741,8 @@ void daemon(void)
 
     if (!daemonInit())
     {
-        goto done;
+        daemonCleanup(udpSock);
+        return;
     }
 
     portSig = 1L << s_ControlPort->mp_SigBit;
@@ -753,7 +754,8 @@ void daemon(void)
     if (udpSock < 0)
     {
         Print(PROGRAM_NAME ": UDP socket() failed");
-        goto done;
+        daemonCleanup(udpSock);
+        return;
     }
 
     reuseVal = 1;
@@ -770,7 +772,8 @@ void daemon(void)
     {
         PrintF(PROGRAM_NAME ": bind UDP port %ld failed (err=%ld)",
                discPort, (LONG)Errno());
-        goto done;
+        daemonCleanup(udpSock);
+        return;
     }
 
     Print(PROGRAM_NAME ": waiting for server... (CTRL+C to quit)");
@@ -1123,7 +1126,6 @@ void daemon(void)
         }
     }
 
-done:
     if (tcpSock >= 0 && SocketBase) CloseSocket(tcpSock);
     daemonCleanup(udpSock);
 }
