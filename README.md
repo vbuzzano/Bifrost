@@ -236,7 +236,17 @@ make upload
 
 ## Version History
 
-### v0.3 (Current)
+### v0.4.1 
+- ✅ Refactor source codes
+- ✅ split the commodity part to another project
+- Many other things to release the
+
+   first fonctionnal Beta release
+
+### v0.4
+- ✅ Introduce commodity
+
+### v0.3
 - ✅ Piecewise-linear acceleration curve
 - ✅ Sub-pixel float accumulation
 - ✅ TCP_NODELAY for low-latency delivery
