@@ -7,7 +7,7 @@ import threading
 import time
 import capture
 import discovery
-from protocol import pack_ping, PKT_HELLO, PKT_EDGE_TRIGGER, PKT_CX_STATE
+from protocol import pack_ping, PKT_HELLO, PKT_EDGE_TRIGGER, PKT_CLIENT_STATE
 
 
 class BifrostServer:
@@ -54,7 +54,7 @@ class BifrostServer:
 
     def _reader_loop(self, conn) -> None:
         """Reads Amiga -> Server control packets (PKT_HELLO, PKT_EDGE_TRIGGER,
-        PKT_CX_STATE) on the same TCP connection used for the forwarded events."""
+        PKT_CLIENT_STATE) on the same TCP connection used for the forwarded events."""
         while True:
             data = self._recv_exact(conn, 8)
             if data is None:
@@ -64,8 +64,8 @@ class BifrostServer:
                 capture.set_pc_edge(data[6])
             elif ptype == PKT_EDGE_TRIGGER:
                 capture._set_focus(capture.FOCUS_PC, entry_percent=data[6])
-            elif ptype == PKT_CX_STATE:
-                capture.set_amiga_cx_state(data[6] == 1)
+            elif ptype == PKT_CLIENT_STATE:
+                capture.set_amiga_client_state(data[6] == 1)
 
     def run(self) -> None:
         self._running = True
@@ -108,7 +108,7 @@ class BifrostServer:
                 # Reset until the fresh PKT_HELLO arrives - avoids a stale
                 # edge config leaking from a previous connection.
                 capture.set_pc_edge(0)
-                capture._reset_amiga_cx_state()
+                capture._reset_amiga_client_state()
                 with self._lock:
                     if self._conn:
                         try:

@@ -17,8 +17,8 @@
 
 // ---> BEGIN GENERATED PROGRAM_CONSTANTS
 #define PROGRAM_NAME "Bifrost"
-#define PROGRAM_VERSION "0.4.0"
-#define PROGRAM_DATE "21.07.2026"
+#define PROGRAM_VERSION "0.4.1"
+#define PROGRAM_DATE "22.07.2026"
 #define PROGRAM_AUTHOR "Vincent Buzzano"
 #define PROGRAM_DESC_SHORT "Amiga Mouse & Keyboard Controller"
 // <--- END GENERATED PROGRAM CONSTANTS
@@ -43,17 +43,17 @@
 #define PKT_WHEEL        0x04    // mouse wheel scroll
 #define PKT_HELLO        0x05    // Amiga -> Server: announces s_pcEdge
 #define PKT_EDGE_TRIGGER 0x06    // Amiga -> Server: switch focus to PC.
-                                 // byte[6] = percent (0-255) along s_amigaEdge.
+                                 // byte[6] = percent (0-255) along 
+                                 // s_amigaEdge.
 #define PKT_FOCUS_ENTER  0x07    // Server -> Amiga: focus just switched to
                                  // Amiga via an edge trigger. byte[6] =
                                  // percent (0-255) along s_amigaEdge to
                                  // place the cursor at; ignored for corners.
-#define PKT_CX_STATE     0x08    // Amiga -> Server: commodity enabled/
+#define PKT_CLIENT_STATE 0x08    // Amiga -> Server: client enabled/
                                  // disabled state. byte[6] = 1 (enabled)
-                                 // or 0 (disabled). Sent by daemon.c;
-                                 // s_cxEnabled is driven by BifrostCX via
-                                 // BMSG_CMD_SET_CONFIG, not by any code in
-                                 // this binary reading commodities.library
+                                 // Sent by daemon.c;
+                                 // s_clientEnabled is driven by the 
+                                 // application port via BMSG_CMD_SET_CONFIG
                                  // directly.
 #define PKT_PING         0xFF    // keepalive
 

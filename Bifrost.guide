@@ -1,12 +1,12 @@
 @database Bifrost.guide
 @author "Vincent Buzzano"
-@$VER: ~ 0.4.0 [PROGRAM_VERSION]~
+@$VER: ~ 0.4.1 [PROGRAM_VERSION]~
 
 @node main "Bifrost"
 @next basicusage
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 @{fg highlight}
-                          @{b}Bifrost v~ 0.4.0 [PROGRAM_VERSION]~@{ub}
+                          @{b}Bifrost v~ 0.4.1 [PROGRAM_VERSION]~@{ub}
                     Mouse & Keyboard Sharing over the Network
 @{fg text}
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
@@ -408,8 +408,8 @@ DEALINGS IN THE SOFTWARE.
 @{b}Credits@{ub}
 
   @{b}Author@{ub}:        Vincent Buzzano
-  @{b}Version@{ub}:       ~ 0.4.0 [PROGRAM_VERSION]~
-  @{b}Date@{ub}:          ~ 21.07.2026 [PROGRAM_DATE]~
+  @{b}Version@{ub}:       ~ 0.4.1 [PROGRAM_VERSION]~
+  @{b}Date@{ub}:          ~ 22.07.2026 [PROGRAM_DATE]~
   @{b}Toolchain@{ub}:     VBCC m68k-amigaos compiler (Amiga client), Python 3 (PC server)
 
 @{b}Special Thanks@{ub}:

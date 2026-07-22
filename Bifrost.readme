@@ -2,10 +2,10 @@ Short:         Share a PC's mouse & keyboard with your Amiga over the LAN
 Author:        reddoc007@gmail.com (Vincent Buzzano)
 Uploader:      reddoc007@gmail.com (Vincent Buzzano)
 Type:          driver/input
-Version:       ~ 0.4.0 [PROGRAM_VERSION]~
+Version:       ~ 0.4.1 [PROGRAM_VERSION]~
 Architecture:  m68k-amigaos
 
-                                 ~ Bifrost [PROGRAM_NAME]~ v~ 0.4.0 [PROGRAM_VERSION]~
+                                 ~ Bifrost [PROGRAM_NAME]~ v~ 0.4.1 [PROGRAM_VERSION]~
 
 -----------------------------------------------------------------------------
 
@@ -101,7 +101,7 @@ automatically.
 VERSION HISTORY
 
 
-~ 0.4.0 [PROGRAM_VERSION]~ (~ 21.07.2026 [PROGRAM_DATE]~)
+~ 0.4.1 [PROGRAM_VERSION]~ (~ 22.07.2026 [PROGRAM_DATE]~)
 
 Initial public release with full feature set:
   - UDP broadcast discovery - no IP address to configure on the Amiga

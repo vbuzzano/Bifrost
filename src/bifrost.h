@@ -26,8 +26,8 @@
 
 #define BMSG_CMD_QUIT        0   // Stop daemon (disconnects from PC first)
 #define BMSG_CMD_GET_STATUS  1   // Query connection status
-#define BMSG_CMD_GET_CONFIG  2   // Read current port/edge/cx-enabled
-#define BMSG_CMD_SET_CONFIG  3   // Apply new edge/cx-enabled (port ignored -
+#define BMSG_CMD_GET_CONFIG  2   // Read current port/edge/client-enabled
+#define BMSG_CMD_SET_CONFIG  3   // Apply new edge/client-enabled (port ignored -
                                  // immutable at runtime, needs a restart)
 
 #define CONTROL_REPLY_TIMEOUT 2  // seconds to wait for daemon reply
@@ -48,7 +48,7 @@ struct BifrostConfig
 {
     ULONG port;       // informational on GET_CONFIG; ignored by setConfig()
     UBYTE pcEdge;      // live-updatable
-    BOOL  cxEnabled;   // live-updatable
+    BOOL  clientEnabled;   // live-updatable
 };
 
 struct BifrostMsg

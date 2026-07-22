@@ -343,7 +343,7 @@ LONG _start(void)
         Print("  STOP   - disconnect and quit the running daemon");
         Print("  Server is discovered automatically via UDP broadcast.");
         Print("  Running Bifrost again while already running updates its edge live");
-        Print("  instead of refusing (see BifrostCX for full Exchange integration).");
+
         CloseLibrary((struct Library *)DOSBase);
         return RETURN_OK;
     }
@@ -410,10 +410,7 @@ LONG _start(void)
     // a duplicate (they'd both bind the same UDP/TCP ports and fight over
     // input.device) - instead it pushes this invocation's edge to the
     // running daemon live. GET_CONFIG first (rather than blindly
-    // SET_CONFIG-ing) so the daemon's current cxEnabled is preserved - a
-    // plain CLI relaunch has no opinion on commodity state, only BifrostCX
-    // manages that, and blindly overwriting it here would silently
-    // re-enable/disable it out from under Exchange.
+    // SET_CONFIG-ing) so the daemon's current clientEnabled is preserved.
     Forbid();
     existingPort = FindPort(Bifrost_PORT_NAME);
     Permit();

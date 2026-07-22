@@ -28,11 +28,11 @@ PKT_FOCUS_ENTER  = 0x07   # Server -> Amiga: focus just switched to Amiga
                            # via an edge trigger. byte[6] = percent (0-255)
                            # position along the Amiga's entry edge; ignored
                            # by the receiver when that edge is a corner.
-PKT_CX_STATE     = 0x08   # Amiga -> Server: commodity enabled/disabled
+PKT_CLIENT_STATE     = 0x08   # Amiga -> Server: client enabled/disabled
                            # state. byte[6] = 1 (enabled) or 0 (disabled).
-                           # Sent once whenever the Amiga-side CX
+                           # Sent once whenever the Amiga-side client
                            # Enable/Disable fires, and once right after
-                           # connecting if CX was requested.
+                           # connecting if client state was requested.
 PKT_PING         = 0xFF
 
 # Button IDs (PKT_MOUSE_BTN code byte)
@@ -98,9 +98,9 @@ def pack_focus_enter(percent: int) -> bytes:
     edge is a corner."""
     return struct.pack(_FMT, PKT_FOCUS_ENTER, 0, 0, 0, percent & 0xFF, 0)
 
-def pack_cx_state(enabled: bool) -> bytes:
-    """Encode the Amiga->Server commodity enabled/disabled notification."""
-    return struct.pack(_FMT, PKT_CX_STATE, 0, 0, 0, 1 if enabled else 0, 0)
+def pack_client_state(enabled: bool) -> bytes:
+    """Encode the Amiga->Server client enabled/disabled notification."""
+    return struct.pack(_FMT, PKT_CLIENT_STATE, 0, 0, 0, 1 if enabled else 0, 0)
 
 def pack_ping() -> bytes:
     """Encode a keepalive packet."""

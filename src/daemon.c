@@ -125,19 +125,18 @@ static struct timerequest   *s_TimerReq  = NULL;
 static struct MsgPort *s_ControlPort = NULL;
 static BOOL            s_connected   = FALSE;
 
-// Commodity-enabled gate, driven exclusively by BifrostCX via
-// BMSG_CMD_SET_CONFIG (see setConfig()) - daemon.c has no commodities.library
-// code of its own. FALSE means "fully paused": the entire packet-dispatch
+// Client-enabled gate, driven exclusively by the application port via
+// BMSG_CMD_SET_CONFIG (see setConfig()) - FALSE means "fully paused": the entire packet-dispatch
 // switch in the inner loop is skipped (no injection, no position tracking,
 // no edge resistance) so the tracked cursor position can never drift out of
 // sync with the real one while paused.
-static BOOL s_cxEnabled = TRUE;
+static BOOL s_clientEnabled = TRUE;
 
 // Socket the inner loop currently has open, needed by setConfig() to send
-// an immediate PKT_CX_STATE update if cxEnabled changes while connected.
+// an immediate PKT_CLIENT_STATE update if clientEnabled changes while connected.
 // -1 when not connected (setConfig() just updates the flag silently then;
-// the next connection's initial PKT_CX_STATE picks up the correct value).
-static LONG s_cxTcpSock = -1;
+// the next connection's initial PKT_CLIENT_STATE picks up the correct value).
+static LONG s_clientTcpSock = -1;
 
 // Amiga-side cursor position estimate (updated from every injected delta)
 // and the last known screen dimensions, both refreshed by correctPosition()
@@ -648,17 +647,17 @@ static void setConfig(const struct BifrostConfig *cfg)
     s_pcEdge    = cfg->pcEdge;
     s_amigaEdge = oppositeEdge(s_pcEdge);
 
-    if (cfg->cxEnabled != s_cxEnabled)
+    if (cfg->clientEnabled != s_clientEnabled)
     {
-        s_cxEnabled = cfg->cxEnabled;
-        if (s_cxTcpSock >= 0)
+        s_clientEnabled = cfg->clientEnabled;
+        if (s_clientTcpSock >= 0)
         {
-            UBYTE cxPkt[PKT_SIZE];
+            UBYTE clientPkt[PKT_SIZE];
             LONG  i;
-            for (i = 0; i < PKT_SIZE; i++) cxPkt[i] = 0;
-            cxPkt[0] = PKT_CX_STATE;
-            cxPkt[6] = s_cxEnabled ? 1 : 0;
-            send(s_cxTcpSock, (APTR)cxPkt, PKT_SIZE, 0);
+            for (i = 0; i < PKT_SIZE; i++) clientPkt[i] = 0;
+            clientPkt[0] = PKT_CLIENT_STATE;
+            clientPkt[6] = s_clientEnabled ? 1 : 0;
+            send(s_clientTcpSock, (APTR)clientPkt, PKT_SIZE, 0);
         }
     }
 }
@@ -690,7 +689,7 @@ static void processControlMessages(BOOL *quitFlag)
             case BMSG_CMD_GET_CONFIG:
                 ctlMsg->config.port      = s_port;
                 ctlMsg->config.pcEdge    = s_pcEdge;
-                ctlMsg->config.cxEnabled = s_cxEnabled;
+                ctlMsg->config.clientEnabled = s_clientEnabled;
                 ctlMsg->result = 0;
                 break;
 
@@ -874,7 +873,7 @@ void daemon(void)
 
         Print(PROGRAM_NAME ": connected - CTRL+C to quit");
         s_connected  = TRUE;
-        s_cxTcpSock  = tcpSock;
+        s_clientTcpSock  = tcpSock;
 
         // Fresh per-connection state: resistance machine, position/screen
         // ground truth, and the correction clock.
@@ -891,14 +890,14 @@ void daemon(void)
             send(tcpSock, (APTR)helloPkt, PKT_SIZE, 0);
         }
 
-        // Announce current commodity-enabled state too, in case it was
+        // Announce current client-enabled state too, in case it was
         // set (via BMSG_CMD_SET_CONFIG) while disconnected.
         {
-            UBYTE cxPkt[PKT_SIZE];
-            for (i = 0; i < PKT_SIZE; i++) cxPkt[i] = 0;
-            cxPkt[0] = PKT_CX_STATE;
-            cxPkt[6] = s_cxEnabled ? 1 : 0;
-            send(tcpSock, (APTR)cxPkt, PKT_SIZE, 0);
+            UBYTE clientPkt[PKT_SIZE];
+            for (i = 0; i < PKT_SIZE; i++) clientPkt[i] = 0;
+            clientPkt[0] = PKT_CLIENT_STATE;
+            clientPkt[6] = s_clientEnabled ? 1 : 0;
+            send(tcpSock, (APTR)clientPkt, PKT_SIZE, 0);
         }
 
         // =====================================================
@@ -956,8 +955,8 @@ void daemon(void)
                 // Disabled via SET_CONFIG: packet already consumed above
                 // (required to keep the connection alive), but nothing is
                 // done with it - no injection, no position tracking, no
-                // edge-resistance. See s_cxEnabled's declaration comment.
-                if (!s_cxEnabled)
+                // edge-resistance. See s_clientEnabled's declaration comment.
+                if (!s_clientEnabled)
                 {
                     continue;
                 }
@@ -1118,7 +1117,7 @@ void daemon(void)
 
         // TCP session ended - close socket, loop back to discovery
         s_connected = FALSE;
-        s_cxTcpSock = -1;
+        s_clientTcpSock = -1;
         CloseSocket(tcpSock);
         tcpSock = -1;
         if (!quit)

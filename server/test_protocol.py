@@ -48,17 +48,17 @@ def test_packet_type_values_match_design():
     assert protocol.PKT_EDGE_TRIGGER == 0x06
 
 
-def test_pack_cx_state_enabled():
-    data = protocol.pack_cx_state(True)
-    assert data == bytes([protocol.PKT_CX_STATE, 0, 0, 0, 0, 0, 1, 0])
+def test_pack_client_state_enabled():
+    data = protocol.pack_client_state(True)
+    assert data == bytes([protocol.PKT_CLIENT_STATE, 0, 0, 0, 0, 0, 1, 0])
     assert len(data) == 8
 
 
-def test_pack_cx_state_disabled():
-    data = protocol.pack_cx_state(False)
-    assert data == bytes([protocol.PKT_CX_STATE, 0, 0, 0, 0, 0, 0, 0])
+def test_pack_client_state_disabled():
+    data = protocol.pack_client_state(False)
+    assert data == bytes([protocol.PKT_CLIENT_STATE, 0, 0, 0, 0, 0, 0, 0])
 
 
-def test_cx_state_packet_type_value_matches_design():
-    # Must stay in sync with src/bifrost.h PKT_CX_STATE
-    assert protocol.PKT_CX_STATE == 0x08
+def test_client_state_packet_type_value_matches_design():
+    # Must stay in sync with src/bifrost.h PKT_CLIENT_STATE
+    assert protocol.PKT_CLIENT_STATE == 0x08

@@ -82,13 +82,13 @@ _SYSTRAY_LABELS = {
 }
 
 
-def _systray_state(conn_active: bool, cx_disabled: bool) -> str:
+def _systray_state(conn_active: bool, client_disabled: bool) -> str:
     """Pure state computation, kept separate from the polling loop below
-    for testability. 'disabled' means connected but CX-disabled on the
-    Amiga side (see capture.set_amiga_cx_state)."""
+    for testability. 'disabled' means connected but client-disabled on the
+    Amiga side (see capture.set_amiga_client_state)."""
     if not conn_active:
         return 'disconnected'
-    return 'disabled' if cx_disabled else 'connected'
+    return 'disabled' if client_disabled else 'connected'
 
 
 def _create_icon(state: str) -> 'Image.Image':
@@ -117,7 +117,7 @@ class _SystrayController:
         while not self.stop_event.is_set():
             with self.srv._lock:
                 conn_active = self.srv._conn is not None
-            state = _systray_state(conn_active, capture._amiga_cx_disabled)
+            state = _systray_state(conn_active, capture._amiga_client_disabled)
 
             if state != self._last_state:
                 self._last_state = state
