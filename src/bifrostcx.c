@@ -11,8 +11,9 @@
  */
 
 // --- Library bases first (VBCC inline pragma requirement) ---
-struct ExecBase   *SysBase;
-struct DosLibrary *DOSBase;
+struct ExecBase       *SysBase;
+struct DosLibrary     *DOSBase;
+struct IntuitionBase  *IntuitionBase;
 
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -26,6 +27,9 @@ struct DosLibrary *DOSBase;
 #include <workbench/startup.h>
 #include <workbench/icon.h>
 #include <proto/icon.h>
+#include <intuition/intuition.h>
+#include <intuition/intuitionbase.h>
+#include <proto/intuition.h>
 
 #include "daemon.h"
 
@@ -205,6 +209,210 @@ static ULONG sendConfigMessage(struct MsgPort *port, UBYTE cmd, struct BifrostCo
 }
 
 //===========================================================================
+// launchBifrost - Run "Bifrost <port> <edge>" as an independent, genuinely
+// separate loaded program via SystemTagList() (its own LoadSeg(), its own
+// seglist - no sharing with BifrostCX, which is what makes launching
+// Bifrost safe here where the old in-image CreateNewProcTags daemon spawn
+// was not). SYS_Asynch so this doesn't block waiting for Bifrost's own
+// detached background process to "finish" (it never does, by design).
+//===========================================================================
+
+static BOOL launchBifrost(ULONG port, UBYTE edge)
+{
+    char        cmdBuf[64];
+    LONG        i = 0;
+    LONG        j;
+    const char *namePart = PROGRAM_NAME " ";
+    const char *edgeName;
+    LONG        rc;
+
+    for (j = 0; namePart[j]; j++) cmdBuf[i++] = namePart[j];
+
+    {
+        UBYTE digits[6];
+        LONG  nd = 0;
+        ULONG p  = port;
+        if (p == 0) { digits[nd++] = '0'; }
+        while (p > 0) { digits[nd++] = (UBYTE)('0' + (p % 10)); p /= 10; }
+        while (nd > 0) { cmdBuf[i++] = (char)digits[--nd]; }
+    }
+    cmdBuf[i++] = ' ';
+
+    switch (edge)
+    {
+        case EDGE_TOP | EDGE_LEFT:     edgeName = "TOPLEFT";     break;
+        case EDGE_TOP | EDGE_RIGHT:    edgeName = "TOPRIGHT";    break;
+        case EDGE_BOTTOM | EDGE_LEFT:  edgeName = "BOTTOMLEFT";  break;
+        case EDGE_BOTTOM | EDGE_RIGHT: edgeName = "BOTTOMRIGHT"; break;
+        case EDGE_TOP:                 edgeName = "TOP";         break;
+        case EDGE_BOTTOM:              edgeName = "BOTTOM";      break;
+        case EDGE_LEFT:                edgeName = "LEFT";        break;
+        case EDGE_RIGHT:               edgeName = "RIGHT";       break;
+        default:                       edgeName = "";            break;
+    }
+    for (j = 0; edgeName[j]; j++) cmdBuf[i++] = edgeName[j];
+    cmdBuf[i] = '\0';
+
+    rc = SystemTags((CONST_STRPTR)cmdBuf, SYS_Asynch, TRUE, TAG_DONE);
+    return (rc != -1);
+}
+
+//===========================================================================
+// confirmRestart - Yes/No AutoRequest() asking whether to stop and relaunch
+// Bifrost on a different port. If intuition.library can't be opened,
+// returns TRUE (proceed) rather than silently doing nothing forever.
+//===========================================================================
+
+static BOOL confirmRestart(void)
+{
+    struct IntuiText  bodyText, posText, negText;
+    BOOL              result;
+
+    IntuitionBase = (struct IntuitionBase *)OpenLibrary("intuition.library", 36);
+    if (!IntuitionBase)
+    {
+        return TRUE;
+    }
+
+    negText.FrontPen  = 1;
+    negText.BackPen   = 0;
+    negText.DrawMode  = JAM2;
+    negText.LeftEdge  = 0;
+    negText.TopEdge   = 0;
+    negText.ITextFont = NULL;
+    negText.IText     = (UBYTE *)"No";
+    negText.NextText  = NULL;
+
+    posText        = negText;
+    posText.IText  = (UBYTE *)"Yes";
+
+    bodyText       = negText;
+    bodyText.IText = (UBYTE *)"Bifrost is running on a different port.\nRestart it with the new port/edge?";
+
+    result = AutoRequest(NULL, &bodyText, &posText, &negText, 0, 0, 320, 80);
+
+    CloseLibrary((struct Library *)IntuitionBase);
+    IntuitionBase = NULL;
+    return result;
+}
+
+//===========================================================================
+// ensureBifrostRunning - Find Bifrost's control port, starting or
+// reconfiguring it as needed per the three cases in the design spec.
+// Returns the (possibly newly-started) control port, or NULL if Bifrost
+// couldn't be found/started/reconfigured.
+//===========================================================================
+
+static struct MsgPort *ensureBifrostRunning(ULONG port, UBYTE edge, BOOL quiet)
+{
+    struct MsgPort *existingPort;
+    LONG            tries;
+
+    Forbid();
+    existingPort = FindPort(Bifrost_PORT_NAME);
+    Permit();
+
+    if (!existingPort)
+    {
+        if (!launchBifrost(port, edge))
+        {
+            Print(PROGRAM_NAME "CX: ERROR - Bifrost not found in command path");
+            return NULL;
+        }
+
+        for (tries = 0; tries < 100; tries++)
+        {
+            Forbid();
+            existingPort = FindPort(Bifrost_PORT_NAME);
+            Permit();
+            if (existingPort) break;
+            Delay(5);
+        }
+
+        if (!existingPort)
+        {
+            Print(PROGRAM_NAME "CX: ERROR - Bifrost did not start in time");
+            return NULL;
+        }
+
+        return existingPort;
+    }
+
+    // Already running - compare config
+    {
+        struct BifrostConfig cfg;
+        ULONG                getResult = sendConfigMessage(existingPort, BMSG_CMD_GET_CONFIG, &cfg);
+
+        if (getResult == 0xFFFFFFFF)
+        {
+            Print(PROGRAM_NAME "CX: ERROR - Bifrost already running but not responding");
+            return NULL;
+        }
+
+        if (cfg.port == port)
+        {
+            if (cfg.pcEdge != edge)
+            {
+                cfg.pcEdge = edge;
+                sendConfigMessage(existingPort, BMSG_CMD_SET_CONFIG, &cfg);
+            }
+            return existingPort;
+        }
+
+        // Port differs - confirm before disrupting an active connection
+        if (quiet || confirmRestart())
+        {
+            struct MsgPort       *newPort;
+            struct BifrostConfig  dummy;
+            BOOL                  wasEnabled = cfg.cxEnabled;
+            dummy.port = 0; dummy.pcEdge = 0; dummy.cxEnabled = FALSE;
+            sendConfigMessage(existingPort, BMSG_CMD_QUIT, &dummy);
+
+            if (!launchBifrost(port, edge))
+            {
+                Print(PROGRAM_NAME "CX: ERROR - Bifrost not found in command path");
+                return NULL;
+            }
+
+            newPort = NULL;
+            for (tries = 0; tries < 100; tries++)
+            {
+                Forbid();
+                newPort = FindPort(Bifrost_PORT_NAME);
+                Permit();
+                if (newPort) break;
+                Delay(5);
+            }
+
+            // A fresh Bifrost always starts with cxEnabled = TRUE (its
+            // compiled-in default) - if the daemon we just replaced was
+            // Disabled via Exchange, re-apply that so our broker's
+            // Activate state (unaffected by the restart - it's ours, not
+            // the daemon's) stays in sync with what Bifrost actually does.
+            if (newPort && !wasEnabled)
+            {
+                struct BifrostConfig newCfg;
+                if (sendConfigMessage(newPort, BMSG_CMD_GET_CONFIG, &newCfg) != 0xFFFFFFFF)
+                {
+                    newCfg.cxEnabled = FALSE;
+                    sendConfigMessage(newPort, BMSG_CMD_SET_CONFIG, &newCfg);
+                }
+            }
+            return newPort;
+        }
+
+        // Declined - adopt the actual running port as-is, but still push
+        // our edge preference live (edge changes never need confirmation).
+        if (cfg.pcEdge != edge)
+        {
+            cfg.pcEdge = edge;
+            sendConfigMessage(existingPort, BMSG_CMD_SET_CONFIG, &cfg);
+        }
+        return existingPort;
+    }
+}
+
+//===========================================================================
 // _start() - Entry point. Workbench-only: reads PORT/EDGE tooltypes from
 // its own icon. If launched from a CLI (pr_CLI != NULL), prints a short
 // message and exits - not a supported path, just a safety net.
@@ -284,10 +492,15 @@ LONG _start(void)
         }
     }
 
-    // Task 6 fills in: find/launch/reconfigure Bifrost using cxPort/cxEdge/
-    // quiet. Task 7 fills in: register the commodity broker and run the
-    // message loop. For now, just reply to Workbench and exit cleanly so
-    // this file is complete and buildable on its own.
+    {
+        struct MsgPort *bifrostPort = ensureBifrostRunning(cxPort, cxEdge, quiet);
+        if (!bifrostPort)
+        {
+            exitCode = RETURN_FAIL;
+        }
+        // Task 7 fills in: register the commodity broker using bifrostPort
+        // and run the message loop.
+    }
 
     if (wbMsg)
     {
