@@ -35,7 +35,6 @@ struct DosLibrary *DOSBase;
 ULONG s_port       = Bifrost_DEFAULT_PORT;
 UBYTE s_pcEdge      = EDGE_NONE;
 UBYTE s_amigaEdge   = EDGE_NONE;
-BOOL  s_cxRequested = FALSE;
 
 // Version string (read by AmigaOS version command)
 const char version[] = VERSION_STRING;
@@ -44,23 +43,9 @@ const char version[] = VERSION_STRING;
 // Forward declarations
 //===========================================================================
 
-static inline UBYTE oppositeEdge(UBYTE edge);
 static BOOL parseEdgeToken(UBYTE *p, UBYTE *outMask, LONG *outLen);
 static ULONG sendBifrostMessage(struct MsgPort *port, UBYTE cmd, ULONG value);
-
-//===========================================================================
-// oppositeEdge - Mirror an edge/corner bitmask: TOP<->BOTTOM, LEFT<->RIGHT
-//===========================================================================
-
-static inline UBYTE oppositeEdge(UBYTE edge)
-{
-    UBYTE result = 0;
-    if (edge & EDGE_TOP)    result |= EDGE_BOTTOM;
-    if (edge & EDGE_BOTTOM) result |= EDGE_TOP;
-    if (edge & EDGE_LEFT)   result |= EDGE_RIGHT;
-    if (edge & EDGE_RIGHT)  result |= EDGE_LEFT;
-    return result;
-}
+static ULONG sendConfigMessage(struct MsgPort *port, UBYTE cmd, struct BifrostConfig *cfg);
 
 //===========================================================================
 // parseEdgeToken - Match a CLI token against the edge keyword table
@@ -139,28 +124,40 @@ static ULONG sendBifrostMessage(struct MsgPort *port, UBYTE cmd, ULONG value)
     replyPort = CreateMsgPort();
     if (!replyPort)
     {
-        goto cleanup;
+        return result;
     }
 
     timerPort = CreateMsgPort();
     if (!timerPort)
     {
-        goto cleanup;
+        DeleteMsgPort(replyPort);
+        return result;
     }
+
     timerReq = (struct timerequest *)CreateIORequest(timerPort, sizeof(struct timerequest));
     if (!timerReq)
     {
-        goto cleanup;
+        DeleteMsgPort(timerPort);
+        DeleteMsgPort(replyPort);
+        return result;
     }
+
     if (OpenDevice("timer.device", UNIT_VBLANK, (struct IORequest *)timerReq, 0))
     {
-        goto cleanup;
+        DeleteIORequest((struct IORequest *)timerReq);
+        DeleteMsgPort(timerPort);
+        DeleteMsgPort(replyPort);
+        return result;
     }
 
     msg = (struct BifrostMsg *)AllocMem(sizeof(struct BifrostMsg), MEMF_PUBLIC | MEMF_CLEAR);
     if (!msg)
     {
-        goto cleanup;
+        CloseDevice((struct IORequest *)timerReq);
+        DeleteIORequest((struct IORequest *)timerReq);
+        DeleteMsgPort(timerPort);
+        DeleteMsgPort(replyPort);
+        return result;
     }
 
     msg->msg.mn_Node.ln_Type = NT_MESSAGE;
@@ -197,27 +194,110 @@ static ULONG sendBifrostMessage(struct MsgPort *port, UBYTE cmd, ULONG value)
         // and this (now-abandoned) reply port simply never sees it.
     }
 
-cleanup:
-    if (msg)
+    FreeMem(msg, sizeof(struct BifrostMsg));
+    CloseDevice((struct IORequest *)timerReq);
+    DeleteIORequest((struct IORequest *)timerReq);
+    DeleteMsgPort(timerPort);
+    DeleteMsgPort(replyPort);
+
+    return result;
+}
+
+//===========================================================================
+// sendConfigMessage - Like sendBifrostMessage(), but for BMSG_CMD_GET_CONFIG/
+// BMSG_CMD_SET_CONFIG: *cfg is sent as input (SET_CONFIG's payload; ignored
+// by the daemon for GET_CONFIG) and overwritten with the daemon's reply
+// config on success (GET_CONFIG's actual answer; SET_CONFIG just echoes
+// back what was sent). Returns the message's `result` field, or
+// 0xFFFFFFFF on timeout/error - same convention as sendBifrostMessage().
+//===========================================================================
+
+static ULONG sendConfigMessage(struct MsgPort *port, UBYTE cmd, struct BifrostConfig *cfg)
+{
+    struct MsgPort      *replyPort = NULL;
+    struct BifrostMsg   *msg       = NULL;
+    struct MsgPort      *timerPort = NULL;
+    struct timerequest  *timerReq  = NULL;
+    ULONG                result    = 0xFFFFFFFF;
+    ULONG                replySig, timerSig, signals;
+
+    replyPort = CreateMsgPort();
+    if (!replyPort)
     {
-        FreeMem(msg, sizeof(struct BifrostMsg));
+        return result;
     }
-    if (timerReq)
-    {
-        if (timerReq->tr_node.io_Device)
-        {
-            CloseDevice((struct IORequest *)timerReq);
-        }
-        DeleteIORequest((struct IORequest *)timerReq);
-    }
-    if (timerPort)
-    {
-        DeleteMsgPort(timerPort);
-    }
-    if (replyPort)
+
+    timerPort = CreateMsgPort();
+    if (!timerPort)
     {
         DeleteMsgPort(replyPort);
+        return result;
     }
+
+    timerReq = (struct timerequest *)CreateIORequest(timerPort, sizeof(struct timerequest));
+    if (!timerReq)
+    {
+        DeleteMsgPort(timerPort);
+        DeleteMsgPort(replyPort);
+        return result;
+    }
+
+    if (OpenDevice("timer.device", UNIT_VBLANK, (struct IORequest *)timerReq, 0))
+    {
+        DeleteIORequest((struct IORequest *)timerReq);
+        DeleteMsgPort(timerPort);
+        DeleteMsgPort(replyPort);
+        return result;
+    }
+
+    msg = (struct BifrostMsg *)AllocMem(sizeof(struct BifrostMsg), MEMF_PUBLIC | MEMF_CLEAR);
+    if (!msg)
+    {
+        CloseDevice((struct IORequest *)timerReq);
+        DeleteIORequest((struct IORequest *)timerReq);
+        DeleteMsgPort(timerPort);
+        DeleteMsgPort(replyPort);
+        return result;
+    }
+
+    msg->msg.mn_Node.ln_Type = NT_MESSAGE;
+    msg->msg.mn_Length       = sizeof(struct BifrostMsg);
+    msg->msg.mn_ReplyPort    = replyPort;
+    msg->command             = cmd;
+    msg->value               = 0;
+    msg->config              = *cfg;
+
+    PutMsg(port, (struct Message *)msg);
+
+    timerReq->tr_node.io_Command = TR_ADDREQUEST;
+    timerReq->tr_time.tv_secs    = CONTROL_REPLY_TIMEOUT;
+    timerReq->tr_time.tv_micro   = 0;
+    SendIO((struct IORequest *)timerReq);
+
+    replySig = 1L << replyPort->mp_SigBit;
+    timerSig = 1L << timerPort->mp_SigBit;
+    signals  = Wait(replySig | timerSig);
+
+    if (signals & replySig)
+    {
+        GetMsg(replyPort);
+        result = msg->result;
+        *cfg   = msg->config;
+        AbortIO((struct IORequest *)timerReq);
+        WaitIO((struct IORequest *)timerReq);
+    }
+    else if (signals & timerSig)
+    {
+        GetMsg(timerPort);
+        Print(PROGRAM_NAME ": ERROR - daemon not responding (timeout)");
+        result = 0xFFFFFFFF;
+    }
+
+    FreeMem(msg, sizeof(struct BifrostMsg));
+    CloseDevice((struct IORequest *)timerReq);
+    DeleteIORequest((struct IORequest *)timerReq);
+    DeleteMsgPort(timerPort);
+    DeleteMsgPort(replyPort);
 
     return result;
 }
@@ -254,14 +334,15 @@ LONG _start(void)
     // Show usage on '?'
     if (*args == '?')
     {
-        Print("Usage: " PROGRAM_NAME " [port] [edge] [CX] | STATUS | STOP");
+        Print("Usage: " PROGRAM_NAME " [port] [edge] | STATUS | STOP");
         PrintF("  port   - TCP port (default: %ld, discovery: port+1)", (LONG)Bifrost_DEFAULT_PORT);
         Print("  edge   - TOP/BOTTOM/LEFT/RIGHT/TOPLEFT/TOPRIGHT/BOTTOMLEFT/BOTTOMRIGHT");
         Print("           PC edge that switches focus to Amiga (default: none = disabled)");
-        Print("  CX     - Register as a commodity (Exchange: Enable/Disable/Remove)");
         Print("  STATUS - query the running daemon's connection status");
         Print("  STOP   - disconnect and quit the running daemon");
         Print("  Server is discovered automatically via UDP broadcast.");
+        Print("  Running Bifrost again while already running updates its edge live");
+        Print("  instead of refusing (see BifrostCX for full Exchange integration).");
         CloseLibrary((struct Library *)DOSBase);
         return RETURN_OK;
     }
@@ -324,23 +405,49 @@ LONG _start(void)
         }
     }
 
-    // Refuse to launch a second daemon on top of an already-running one -
-    // they'd both bind the same UDP/TCP ports and fight over input.device.
+    // A second invocation while Bifrost is already running doesn't launch
+    // a duplicate (they'd both bind the same UDP/TCP ports and fight over
+    // input.device) - instead it pushes this invocation's edge to the
+    // running daemon live. GET_CONFIG first (rather than blindly
+    // SET_CONFIG-ing) so the daemon's current cxEnabled is preserved - a
+    // plain CLI relaunch has no opinion on commodity state, only BifrostCX
+    // manages that, and blindly overwriting it here would silently
+    // re-enable/disable it out from under Exchange.
     Forbid();
     existingPort = FindPort(Bifrost_PORT_NAME);
     Permit();
     if (existingPort)
     {
-        Print(PROGRAM_NAME ": already running (STOP to quit, STATUS to query)");
+        struct BifrostConfig cfg;
+        ULONG                getResult;
+
+        getResult = sendConfigMessage(existingPort, BMSG_CMD_GET_CONFIG, &cfg);
+        if (getResult == 0xFFFFFFFF)
+        {
+            Print(PROGRAM_NAME ": ERROR - already running but not responding");
+            CloseLibrary((struct Library *)DOSBase);
+            return RETURN_FAIL;
+        }
+
+        if (cfg.port != s_port)
+        {
+            Print(PROGRAM_NAME ": already running on a different port - STOP it first, then relaunch");
+            CloseLibrary((struct Library *)DOSBase);
+            return RETURN_WARN;
+        }
+
+        cfg.pcEdge = s_pcEdge;
+        sendConfigMessage(existingPort, BMSG_CMD_SET_CONFIG, &cfg);
+        PrintF(PROGRAM_NAME ": config updated (edge=0x%02lx)", (LONG)s_pcEdge);
         CloseLibrary((struct Library *)DOSBase);
-        return RETURN_WARN;
+        return RETURN_OK;
     }
 
-    // Parse up to 3 whitespace-separated tokens, any order: a numeric
-    // port, an edge keyword, and/or the "CX" flag.
+    // Parse up to 2 whitespace-separated tokens, any order: a numeric
+    // port and/or an edge keyword.
     {
         LONG tok;
-        for (tok = 0; tok < 3; tok++)
+        for (tok = 0; tok < 2; tok++)
         {
             while (*args == ' ' || *args == '\t')
             {
@@ -365,12 +472,6 @@ LONG _start(void)
                 {
                     s_port = (ULONG)portNum;
                 }
-            }
-            else if ((args[0]|32)=='c' && (args[1]|32)=='x' &&
-                     (args[2]=='\0' || args[2]==' ' || args[2]=='\t' || args[2]=='\n'))
-            {
-                s_cxRequested = TRUE;
-                args += 2;
             }
             else
             {
@@ -421,10 +522,6 @@ LONG _start(void)
     {
         PrintF(PROGRAM_NAME ": edge switching enabled (PC edge=0x%02lx, Amiga edge=0x%02lx)",
                (LONG)s_pcEdge, (LONG)s_amigaEdge);
-    }
-    if (s_cxRequested)
-    {
-        Print(PROGRAM_NAME ": commodity requested (Exchange integration)");
     }
 
     CloseLibrary((struct Library *)DOSBase);
