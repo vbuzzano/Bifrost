@@ -499,7 +499,7 @@ LONG _start(void)
     // Launch daemon as background process
     if (!CreateNewProcTags(
         NP_Entry,    (ULONG)daemon,
-        NP_Name,     (ULONG)PROGRAM_NAME " [daemon]",
+        NP_Name,     (ULONG)PROGRAM_NAME,
         NP_Priority, 0,
         TAG_DONE))
     {
