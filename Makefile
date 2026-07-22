@@ -15,15 +15,15 @@ SHELL = cmd.exe
 TOOLS_DIR = $(VENDOR_DIR)/tools
 
 # Source files
-SRC_Bifrost = $(SRC_DIR)/main.c $(SRC_DIR)/daemon.c
+SRC_FILES = $(SRC_DIR)/main.c $(SRC_DIR)/daemon.c
 ASM = $(wildcard $(SRC_DIR)/*.s)
 
 EXE_FILE = $(DIST_DIR)/$(PROGRAM_EXE_NAME)
 EXECMD_FILE = $(subst /,\,$(EXE_FILE))
 
 # Generated files
-OBJ_Bifrost = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC_Bifrost))
-ASM_Bifrost = $(ASM_DIR)/Bifrost.asm
+OBJ_FILES = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC_FILES))
+ASM_FILES = $(ASM_DIR)/$(PROGRAM_EXE_NAME).asm
 ASM_OBJS = $(patsubst $(SRC_DIR)/%.s,$(OBJ_DIR)/%.o,$(ASM))
 
 # Compiler and Linker
@@ -85,7 +85,7 @@ dirs:
 	@if not exist "$(DIST_DIR)" mkdir "$(DIST_DIR)"
 
 
-build: $(EXE_FILE) #$(ASM_Bifrost)
+build: $(EXE_FILE) #$(ASM_FILES)
 rebuild: clean build
 
 build-release:
@@ -126,19 +126,19 @@ upload: $(EXE_FILE)
 # --- Help ---
 help:
 	@echo ------------------------------------------------------------------
-	@echo Bifrost Makefile
+	@echo $(PROGRAM_NAME) Makefile
 	@echo ------------------------------------------------------------------
 	@echo Available targets:
-	@echo   build           - Build programs: Bifrost
-	@echo   rebuild         - Clean and build Bifrost
+	@echo   build           - Build programs: $(PROGRAM_EXE_NAME)
+	@echo   rebuild         - Clean and build $(PROGRAM_EXE_NAME)
 	@echo   clean           - Remove all build and dist files
-	@echo   upload          - Upload Bifrost to Vampire V4
-	@echo   build-release   - Build release version of Bifrost
-	@echo   rebuild-release - Clean and build release version of Bifrost
-	@echo   release         - Build Bifrost LHA release (optimized, stripped)
+	@echo   upload          - Upload $(PROGRAM_EXE_NAME) to Vampire V4
+	@echo   build-release   - Build release version of $(PROGRAM_EXE_NAME)
+	@echo   rebuild-release - Clean and build release version of $(PROGRAM_EXE_NAME)
+	@echo   release         - Build $(PROGRAM_EXE_NAME) LHA release (optimized, stripped)
 	@echo   help/all        - Show this help
 	@echo ------------------------------------------------------------------
-	@echo   MODE=release  - Build Bifrost release program
+	@echo   MODE=release  - Build $(PROGRAM_EXE_NAME) release program
 
 
 # Phony targets
@@ -150,7 +150,7 @@ $(BUILD_DIR) $(DIST_DIR) $(OBJ_DIR) $(ASM_DIR):
 	@if not exist "$@" mkdir "$@"
 
 # Link the executables
-$(EXE_FILE): $(OBJ_Bifrost) $(ASM_OBJS) | $(DIST_DIR)
+$(EXE_FILE): $(OBJ_FILES) $(ASM_OBJS) | $(DIST_DIR)
 	$(CC) $(CFLAGS) $(AMIGA_FLAGS) $(LDFLAGS) -o $@ $^
 
 # Compile sources
@@ -158,7 +158,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(AMIGA_FLAGS) -c -o $@ $<
 
 # Generate assembly files
-$(ASM_Bifrost): $(SRC_Bifrost) | $(ASM_DIR)
+$(ASM_FILES): $(SRC_FILES) | $(ASM_DIR)
 	$(CC) $(CFLAGS) $(AMIGA_FLAGS) -S -o=$@ $<
 
 # Assemble .s files

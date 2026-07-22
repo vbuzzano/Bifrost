@@ -30,9 +30,6 @@
 // Protocol constants  (must match server/protocol.py)
 //===========================================================================
 
-#define Bifrost_DEFAULT_PORT 7890
-#define Bifrost_DISC_PORT    7891    // UDP discovery port (= TCP port + 1)
-
 // Discovery messages
 #define DISC_MSG            "Bifrost_DISCOVER"
 #define DISC_MSG_LEN        15
@@ -68,13 +65,6 @@
 // Wheel direction (byte 6 in PKT_WHEEL)
 #define WHEEL_UP        0
 #define WHEEL_DOWN      1
-
-// Edge/corner bitmask (matches server/edge_resistance.py EDGE_*)
-#define EDGE_NONE       0x00
-#define EDGE_TOP        0x01
-#define EDGE_BOTTOM     0x02
-#define EDGE_LEFT       0x04
-#define EDGE_RIGHT      0x08
 
 // State byte (byte 7)
 #define PKT_UP          0

@@ -20,6 +20,10 @@
 // Changing port name breaks compatibility with third-party tools/scripts.
 #define Bifrost_PORT_NAME   "Bifrost_Port" // WARNING: Modify with caution!
 
+#define Bifrost_DEFAULT_PORT 7890
+#define Bifrost_DISC_PORT    7891    // UDP discovery port (= TCP port + 1)
+
+
 #define BMSG_CMD_QUIT        0   // Stop daemon (disconnects from PC first)
 #define BMSG_CMD_GET_STATUS  1   // Query connection status
 #define BMSG_CMD_GET_CONFIG  2   // Read current port/edge/cx-enabled
@@ -27,6 +31,14 @@
                                  // immutable at runtime, needs a restart)
 
 #define CONTROL_REPLY_TIMEOUT 2  // seconds to wait for daemon reply
+
+
+// Edge/corner bitmask (matches server/edge_resistance.py EDGE_*)
+#define EDGE_NONE       0x00
+#define EDGE_TOP        0x01
+#define EDGE_BOTTOM     0x02
+#define EDGE_LEFT       0x04
+#define EDGE_RIGHT      0x08
 
 // Configurable daemon state. GET_CONFIG copies the daemon's current values
 // into this; SET_CONFIG's setConfig() (daemon.c) applies every field
