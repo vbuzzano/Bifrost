@@ -46,3 +46,19 @@ def test_packet_type_values_match_design():
     # Must stay in sync with src/Bifrost.c PKT_HELLO / PKT_EDGE_TRIGGER
     assert protocol.PKT_HELLO == 0x05
     assert protocol.PKT_EDGE_TRIGGER == 0x06
+
+
+def test_pack_cx_state_enabled():
+    data = protocol.pack_cx_state(True)
+    assert data == bytes([protocol.PKT_CX_STATE, 0, 0, 0, 0, 0, 1, 0])
+    assert len(data) == 8
+
+
+def test_pack_cx_state_disabled():
+    data = protocol.pack_cx_state(False)
+    assert data == bytes([protocol.PKT_CX_STATE, 0, 0, 0, 0, 0, 0, 0])
+
+
+def test_cx_state_packet_type_value_matches_design():
+    # Must stay in sync with src/daemon.h PKT_CX_STATE
+    assert protocol.PKT_CX_STATE == 0x08
