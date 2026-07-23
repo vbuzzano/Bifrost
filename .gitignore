@@ -39,6 +39,12 @@ dist/*
 !.vscode/settings.json    # Garder les settings projet
 *.code-workspace
 
+.github/*
+.claude/*
+.superpowers/*
+AGENT.md
+CLAUDE.md
+
 # Autres éditeurs
 *.swp
 *.swo
