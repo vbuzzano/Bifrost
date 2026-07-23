@@ -639,13 +639,31 @@ static void daemonCleanup(LONG sock)
 // everything except cfg->port (immutable at runtime - a port change needs
 // a restart, reported by the caller comparing cfg->port against the
 // GET_CONFIG it read first; setConfig() itself doesn't need to know or
-// care whether the port matched).
+// care whether the port matched). Re-sends PKT_HELLO/PKT_CLIENT_STATE to
+// an already-connected server when pcEdge/clientEnabled actually change -
+// otherwise a live BifrostCX edge/enable change while connected would
+// never reach the server until the next reconnect.
 //===========================================================================
 
 static void setConfig(const struct BifrostConfig *cfg)
 {
+    UBYTE oldPcEdge = s_pcEdge;
+
     s_pcEdge    = cfg->pcEdge;
     s_amigaEdge = oppositeEdge(s_pcEdge);
+
+    // Re-announce to an already-connected server - PKT_HELLO is otherwise
+    // only sent once, right after connect, so a live edge change would
+    // never reach a server that connected before this SET_CONFIG arrived.
+    if (s_pcEdge != oldPcEdge && s_clientTcpSock >= 0)
+    {
+        UBYTE helloPkt[PKT_SIZE];
+        LONG  i;
+        for (i = 0; i < PKT_SIZE; i++) helloPkt[i] = 0;
+        helloPkt[0] = PKT_HELLO;
+        helloPkt[6] = s_pcEdge;
+        send(s_clientTcpSock, (APTR)helloPkt, PKT_SIZE, 0);
+    }
 
     if (cfg->clientEnabled != s_clientEnabled)
     {
