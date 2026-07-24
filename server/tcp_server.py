@@ -7,7 +7,15 @@ import threading
 import time
 import capture
 import discovery
-from protocol import pack_ping, PKT_HELLO, PKT_EDGE_TRIGGER, PKT_CLIENT_STATE
+from protocol import PKT_HELLO, PKT_EDGE_TRIGGER, PKT_CLIENT_STATE, PKT_HEARTBEAT, unpack_heartbeat
+
+
+# daemon.c sends PKT_HEARTBEAT roughly every 1s, interleaved with normal
+# traffic regardless of how busy its main loop is (see sendHeartbeatIfDue()
+# in daemon.c) - so unlike a request/reply ping, it isn't subject to
+# head-of-line blocking behind a backlog of mouse/key packets. A short
+# timeout is safe here for that reason.
+HEARTBEAT_TIMEOUT_S = 2.0
 
 
 class BifrostServer:
@@ -17,6 +25,15 @@ class BifrostServer:
         self._conn = None           # Active Amiga connection socket
         self._lock = threading.Lock()
         self._running = False
+        self._last_rx = 0.0             # any packet - used by clean-close handling
+        self._last_heartbeat_rx = 0.0   # PKT_HEARTBEAT only - liveness watchdog
+        self._heartbeat_lost = False    # avoids repeat set_amiga_client_state(False) calls
+        # Tracks the last explicit PKT_CLIENT_STATE from the Amiga (e.g. via
+        # BifrostCX/Exchange), independent of the heartbeat watchdog's own
+        # disable/re-enable - so a resumed heartbeat never overrides an
+        # intentional Exchange-disable that happened to coincide with it.
+        self._explicitly_disabled = False
+        self.amiga_pos = (0, 0)         # last (x, y) from PKT_HEARTBEAT
 
     def _send(self, data: bytes) -> None:
         """Thread-safe send to the connected Amiga client."""
@@ -34,11 +51,30 @@ class BifrostServer:
                     # Auto-switch back to PC so user is never stuck
                     capture._set_focus(capture.FOCUS_PC)
 
-    def _ping_loop(self) -> None:
-        """Send keepalive every 5 seconds to detect dead connections early."""
+    def _watchdog_loop(self) -> None:
+        """Soft-disable the Amiga client if its heartbeat goes quiet.
+
+        Unlike _send()'s OSError path (a genuinely dead socket) or
+        _reader_loop's clean-close handling (a graceful disconnect), this
+        covers a TCP connection that's still technically open but whose
+        daemon.c main loop has stopped responding (e.g. mid-reboot). It
+        reuses the same client-enabled/disabled mechanism BifrostCX's
+        Exchange integration already drives (capture.set_amiga_client_state) -
+        forces PC focus and blocks re-entering Amiga focus, but leaves the
+        TCP connection alone so a resumed heartbeat can re-enable it without
+        a full reconnect.
+        """
         while self._running:
-            time.sleep(5)
-            self._send(pack_ping())
+            time.sleep(0.5)
+            with self._lock:
+                conn = self._conn
+                elapsed = time.monotonic() - self._last_heartbeat_rx
+                stale = conn is not None and not self._heartbeat_lost and elapsed > HEARTBEAT_TIMEOUT_S
+                if stale:
+                    self._heartbeat_lost = True
+            if stale:
+                print(f'[Bifrost] Amiga heartbeat lost ({elapsed:.1f}s) - forcing PC focus (connection kept open)')
+                capture.set_amiga_client_state(False)
 
     def _recv_exact(self, conn, n):
         buf = b''
@@ -54,18 +90,39 @@ class BifrostServer:
 
     def _reader_loop(self, conn) -> None:
         """Reads Amiga -> Server control packets (PKT_HELLO, PKT_EDGE_TRIGGER,
-        PKT_CLIENT_STATE) on the same TCP connection used for the forwarded events."""
+        PKT_CLIENT_STATE, PKT_HEARTBEAT) on the same TCP connection used for
+        the forwarded events."""
         while True:
             data = self._recv_exact(conn, 8)
             if data is None:
+                # Clean close (FIN/RST) - don't wait on the next _send()'s
+                # OSError to hand focus back.
+                with self._lock:
+                    was_current = self._conn is conn
+                    if was_current:
+                        self._conn = None
+                if was_current:
+                    print('[Bifrost] Amiga disconnected - returning focus to PC')
+                    capture._set_focus(capture.FOCUS_PC)
                 return
+            self._last_rx = time.monotonic()
             ptype = data[0]
             if ptype == PKT_HELLO:
                 capture.set_pc_edge(data[6])
             elif ptype == PKT_EDGE_TRIGGER:
                 capture._set_focus(capture.FOCUS_PC, entry_percent=data[6])
             elif ptype == PKT_CLIENT_STATE:
+                self._explicitly_disabled = data[6] != 1
                 capture.set_amiga_client_state(data[6] == 1)
+            elif ptype == PKT_HEARTBEAT:
+                self._last_heartbeat_rx = self._last_rx
+                self.amiga_pos = unpack_heartbeat(data)
+                with self._lock:
+                    was_lost = self._heartbeat_lost
+                    self._heartbeat_lost = False
+                if was_lost and not self._explicitly_disabled:
+                    print('[Bifrost] Amiga heartbeat resumed - re-enabling client')
+                    capture.set_amiga_client_state(True)
 
     def run(self) -> None:
         self._running = True
@@ -74,9 +131,9 @@ class BifrostServer:
         # connected_fn: capture blocks Amiga-mode toggle when not connected
         capture.start(self._send, connected_fn=lambda: self._conn is not None)
 
-        # Keepalive thread
-        ping_t = threading.Thread(target=self._ping_loop, daemon=True)
-        ping_t.start()
+        # Heartbeat liveness watchdog
+        watchdog_t = threading.Thread(target=self._watchdog_loop, daemon=True)
+        watchdog_t.start()
 
         # UDP broadcast so Amiga discovers server without IP config
         disc_port = self._port + 1
@@ -116,6 +173,11 @@ class BifrostServer:
                         except OSError:
                             pass
                     self._conn = conn
+                    now = time.monotonic()
+                    self._last_rx = now
+                    self._last_heartbeat_rx = now
+                    self._heartbeat_lost = False
+                    self._explicitly_disabled = False
                 threading.Thread(target=self._reader_loop, args=(conn,), daemon=True).start()
         except KeyboardInterrupt:
             print('\n[Bifrost] Stopping...')

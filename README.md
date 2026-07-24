@@ -184,7 +184,7 @@ Updates every 0.5 seconds to reflect connection state changes in real-time.
 
 - **Data:** TCP/IP with TCP_NODELAY enabled
   - Fixed 8-byte packets with big-endian encoding
-  - Packet types: `PKT_MOUSE_MOVE`, `PKT_MOUSE_BTN`, `PKT_KEY`, `PKT_WHEEL`, `PKT_HELLO`, `PKT_EDGE_TRIGGER`, `PKT_FOCUS_ENTER`, `PKT_PING`
+  - Packet types: `PKT_MOUSE_MOVE`, `PKT_MOUSE_BTN`, `PKT_KEY`, `PKT_WHEEL`, `PKT_HELLO`, `PKT_EDGE_TRIGGER`, `PKT_FOCUS_ENTER`, `PKT_CLIENT_STATE`, `PKT_HEARTBEAT`
   - Default send rate: 50 Hz (~20ms per event)
 
 ### Mouse Acceleration (Piecewise-Linear)

@@ -2,7 +2,7 @@
 Bifrost Protocol - 8-byte binary packet encoding.
 
 Packet layout (big-endian):
-  [0]   type:  PKT_MOUSE_MOVE | PKT_MOUSE_BTN | PKT_KEY | PKT_WHEEL | PKT_HELLO | PKT_EDGE_TRIGGER | PKT_FOCUS_ENTER | PKT_PING
+  [0]   type:  PKT_MOUSE_MOVE | PKT_MOUSE_BTN | PKT_KEY | PKT_WHEEL | PKT_HELLO | PKT_EDGE_TRIGGER | PKT_FOCUS_ENTER | PKT_CLIENT_STATE | PKT_HEARTBEAT
   [1]   flags: qualifier bitmask (QUAL_*)
   [2-3] x:     int16 mouse delta (big-endian)
   [4-5] y:     int16 mouse delta (big-endian)
@@ -33,7 +33,12 @@ PKT_CLIENT_STATE     = 0x08   # Amiga -> Server: client enabled/disabled
                            # Sent once whenever the Amiga-side client
                            # Enable/Disable fires, and once right after
                            # connecting if client state was requested.
-PKT_PING         = 0xFF
+PKT_HEARTBEAT    = 0x09   # Amiga -> Server: sent every ~1s regardless of
+                           # other traffic - proves the daemon's main loop
+                           # is alive and responsive, independent of any
+                           # PC->Amiga packet backlog. x/y = current Amiga
+                           # cursor position (room to carry more state
+                           # later). See tcp_server.py's liveness handling.
 
 # Button IDs (PKT_MOUSE_BTN code byte)
 BTN_LEFT   = 0
@@ -102,6 +107,7 @@ def pack_client_state(enabled: bool) -> bytes:
     """Encode the Amiga->Server client enabled/disabled notification."""
     return struct.pack(_FMT, PKT_CLIENT_STATE, 0, 0, 0, 1 if enabled else 0, 0)
 
-def pack_ping() -> bytes:
-    """Encode a keepalive packet."""
-    return struct.pack(_FMT, PKT_PING, 0, 0, 0, 0, 0)
+def unpack_heartbeat(data: bytes) -> tuple:
+    """Decode a PKT_HEARTBEAT payload. Returns (x, y) - current Amiga cursor position."""
+    _, _, x, y, _, _ = struct.unpack(_FMT, data)
+    return x, y

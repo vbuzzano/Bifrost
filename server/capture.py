@@ -50,7 +50,7 @@ def _load_config():
         'curve': {'linear': 2.0, 'ratio': 0.5},
         'keys': {'toggle': 'scroll_lock', 'emergency': 'pause', 'kill_modifier': 'ctrl',
                   'right_amiga': 'windows'},
-        'debug': {'enabled': True, 'print_events': True}
+        'debug': {'enabled': True, 'log_mouse': False, 'log_keys': True}
     }
 
     try:
@@ -150,7 +150,11 @@ if EMERGENCY_KEY == TOGGLE_KEY:
 KILL_MODIFIER_MASK = _get_modifier_mask(_CONFIG['keys']['kill_modifier'], 'ctrl')
 RIGHT_AMIGA_SOURCE = _get_right_amiga_source(_CONFIG['keys'].get('right_amiga', 'windows'))
 set_right_amiga_source(use_ctrl=(RIGHT_AMIGA_SOURCE == 'ctrl'))
-DEBUG = _CONFIG['debug']['enabled']
+DEBUG     = _CONFIG['debug']['enabled']
+# Sub-levels under DEBUG - mouse motion logs are high-frequency/noisy and
+# off by default; key-send logs are low-frequency and on by default.
+LOG_MOUSE = DEBUG and bool(_CONFIG['debug'].get('log_mouse', False))
+LOG_KEYS  = DEBUG and bool(_CONFIG['debug'].get('log_keys', True))
 
 MOUSE_INTERVAL = 1.0 / MOUSE_HZ
 
@@ -312,7 +316,9 @@ _amiga_client_disabled = False  # True once a PKT_CLIENT_STATE(disabled) arrives
 
 
 def set_amiga_client_state(enabled: bool) -> None:
-    """Called by tcp_server.py when a PKT_CLIENT_STATE arrives."""
+    """Called by tcp_server.py when a PKT_CLIENT_STATE arrives (Exchange
+    enable/disable), or by its heartbeat watchdog when PKT_HEARTBEAT goes
+    quiet/resumes."""
     global _amiga_client_disabled
     _amiga_client_disabled = not enabled
     if enabled:
@@ -358,7 +364,7 @@ def _flush_mouse():
         return
     sdx_clamped = max(-128, min(127, sdx))
     sdy_clamped = max(-128, min(127, sdy))
-    if DEBUG:
+    if LOG_MOUSE:
         conn = 'SENT' if _send_fn else 'NO_CLIENT'
         print(f'[mouse] {conn} dx={sdx_clamped:+d} dy={sdy_clamped:+d}  (raw_pc dx={dx:+d} dy={dy:+d}  rem={_flush_rem_x:.2f},{_flush_rem_y:.2f})')
     if _send_fn:
@@ -387,7 +393,7 @@ def _on_raw_delta(dx, dy):
     # Apply speed factor: raw input has no Windows mouse acceleration
     dx = int(dx * MOUSE_SPEED)
     dy = int(dy * MOUSE_SPEED)
-    if DEBUG and (dx or dy):
+    if LOG_MOUSE and (dx or dy):
         print(f'[mouse] raw      dx={dx:+d} dy={dy:+d}')
     if dx or dy:
         with _move_lock:
@@ -466,11 +472,11 @@ def _on_move_amiga(x, y):
     # because _last was set to center while cursor was elsewhere.
     # After one discard, _last = x and all subsequent deltas are correct.
     if abs(dx) > DELTA_MAX or abs(dy) > DELTA_MAX:
-        if DEBUG:
+        if LOG_MOUSE:
             print(f'[mouse] DISCARD  pos=({x},{y}) dx={dx:+d} dy={dy:+d}  (>{DELTA_MAX})')
         return
 
-    if DEBUG and (dx or dy):
+    if LOG_MOUSE and (dx or dy):
         print(f'[mouse] event    pos=({x},{y}) dx={dx:+d} dy={dy:+d}')
 
     if dx or dy:
@@ -530,6 +536,8 @@ def _on_key_press(key):
     if _focus == FOCUS_AMIGA:
         code = get_rawcode(key)
         if code is not None and _send_fn:
+            if LOG_KEYS:
+                print(f'[key] DOWN  key={key!r:<20} code=0x{code:02X} qual=0x{_qual():02X}')
             _send_fn(pack_key(code, True, _qual()))
 
 
@@ -543,6 +551,8 @@ def _on_key_release(key):
     if _focus == FOCUS_AMIGA:
         code = get_rawcode(key)
         if code is not None and _send_fn:
+            if LOG_KEYS:
+                print(f'[key] UP    key={key!r:<20} code=0x{code:02X} qual=0x{_qual():02X}')
             _send_fn(pack_key(code, False, _qual()))
 
 

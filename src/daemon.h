@@ -52,10 +52,15 @@
 #define PKT_CLIENT_STATE 0x08    // Amiga -> Server: client enabled/
                                  // disabled state. byte[6] = 1 (enabled)
                                  // Sent by daemon.c;
-                                 // s_clientEnabled is driven by the 
+                                 // s_clientEnabled is driven by the
                                  // application port via BMSG_CMD_SET_CONFIG
                                  // directly.
-#define PKT_PING         0xFF    // keepalive
+#define PKT_HEARTBEAT    0x09    // Amiga -> Server: sent every ~1s
+                                 // regardless of other traffic - proves the
+                                 // main loop is alive/responsive independent
+                                 // of any PC->Amiga packet backlog.
+                                 // x/y (bytes 2-5) = current Amiga cursor
+                                 // position.
 
 // Button IDs (byte 6 in PKT_MOUSE_BTN)
 #define BTN_LEFT        0

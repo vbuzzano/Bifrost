@@ -147,6 +147,10 @@ static WORD  s_screenW = 640;
 static WORD  s_screenH = 512;
 static ULONG s_lastCorrectionMs = 0;
 
+// PKT_HEARTBEAT cadence (~1s, checked opportunistically wherever the recv
+// loop happens to be - see sendHeartbeatIfDue()).
+static ULONG s_lastHeartbeatMs = 0;
+
 // Edge resistance state machine (mirrors server/edge_resistance.py's
 // state machine logic, but MIN_PUSH_DELTA/PUSH_TIMEOUT_MS are deliberately
 // harder here than the PC side's MIN_PUSH_DELTA/PUSH_TIMEOUT_S - switching
@@ -187,6 +191,7 @@ static inline UWORD qualToAmiga(UBYTE flags);
 static LONG connectWithTimeout(LONG sock, struct sockaddr_in *sa, LONG timeoutSecs);
 static ULONG currentTimeMs(void);
 static void correctPosition(void);
+static void sendHeartbeatIfDue(LONG sock);
 static UBYTE detectEdgeHits(WORD x, WORD y, WORD w, WORD h, UBYTE edgeMask);
 static UBYTE percentAlongEdge(WORD x, WORD y, WORD w, WORD h, UBYTE edgeMask);
 static void  positionFromPercent(UBYTE percent, WORD w, WORD h, UBYTE edgeMask,
@@ -273,6 +278,35 @@ static void correctPosition(void)
         s_screenH = scr->Height;
     }
     UnlockIBase(ibLock);
+}
+
+//===========================================================================
+// sendHeartbeatIfDue - PKT_HEARTBEAT every ~1s, independent of PC traffic.
+//
+// Called from both the WaitSelect-timeout path (idle: no packets arriving)
+// and opportunistically after processing a received packet (busy: a
+// backlog of mouse/key events) - so the server sees a steady heartbeat
+// either way, instead of one that only gets through once every packet
+// already queued ahead of it has been drained (see server/tcp_server.py's
+// liveness handling for why that distinction matters).
+//===========================================================================
+
+static void sendHeartbeatIfDue(LONG sock)
+{
+    ULONG nowMs = currentTimeMs();
+    if (nowMs - s_lastHeartbeatMs >= 1000UL)
+    {
+        UBYTE hbPkt[PKT_SIZE];
+        LONG  hi;
+        for (hi = 0; hi < PKT_SIZE; hi++) hbPkt[hi] = 0;
+        hbPkt[0] = PKT_HEARTBEAT;
+        hbPkt[2] = (UBYTE)((UWORD)s_curX >> 8);
+        hbPkt[3] = (UBYTE)((UWORD)s_curX & 0xFF);
+        hbPkt[4] = (UBYTE)((UWORD)s_curY >> 8);
+        hbPkt[5] = (UBYTE)((UWORD)s_curY & 0xFF);
+        send(sock, (APTR)hbPkt, PKT_SIZE, 0);
+        s_lastHeartbeatMs = nowMs;
+    }
 }
 
 //===========================================================================
@@ -758,6 +792,9 @@ void daemon(void)
     socklen_t           fromLen;
     struct sockaddr_in  tcpSa;          // TCP connect address
     fd_set_t            readFds;
+    struct timeval      recvTv;         // inner loop WaitSelect timeout -
+                                         // lets sendHeartbeatIfDue() run
+                                         // even with no PC traffic at all
     ULONG               sigMask;
     ULONG               portSig;
     UBYTE               pkt[PKT_SIZE];
@@ -917,6 +954,7 @@ void daemon(void)
         s_ramigaHeld  = FALSE;
         correctPosition();
         s_lastCorrectionMs = currentTimeMs();
+        s_lastHeartbeatMs  = s_lastCorrectionMs;
 
         // Announce our PC edge configuration to the server (0 = disabled)
         {
@@ -946,8 +984,10 @@ void daemon(void)
             FD_ZERO(&readFds);
             FD_SET((ULONG)tcpSock, &readFds);
             sigMask = SIGBREAKF_CTRL_C | portSig;
+            recvTv.tv_secs  = 1;
+            recvTv.tv_micro = 0;
 
-            rc = WaitSelect(tcpSock + 1, (APTR)&readFds, NULL, NULL, NULL, &sigMask);
+            rc = WaitSelect(tcpSock + 1, (APTR)&readFds, NULL, NULL, &recvTv, &sigMask);
 
             if (sigMask & SIGBREAKF_CTRL_C)
             {
@@ -970,6 +1010,13 @@ void daemon(void)
                 disconnected = TRUE;
                 break;
             }
+
+            // rc == 0: 1s timeout, no data - still due for a heartbeat.
+            // rc > 0: data ready - checked again below after processing it,
+            // so a busy connection (backlog of mouse/key packets) still
+            // gets a heartbeat interleaved roughly every second instead of
+            // only once idle.
+            sendHeartbeatIfDue(tcpSock);
 
             if (rc > 0 && FD_ISSET((ULONG)tcpSock, &readFds))
             {
@@ -1155,9 +1202,6 @@ void daemon(void)
                         s_curY = targetY;
                         break;
                     }
-
-                    case PKT_PING:
-                        break;
 
                     default:
                         break;

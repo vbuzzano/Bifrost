@@ -21,6 +21,7 @@
   },
   "debug": {
     "enabled": true,
-    "print_events": true
+    "log_mouse": false,
+    "log_keys": true
   }
 }

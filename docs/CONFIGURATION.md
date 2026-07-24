@@ -228,24 +228,34 @@ AmigaOS needs **predictable** mouse acceleration, not Windows' aggressive rampin
 **Default:** `true`  
 **Options:** `true` or `false`
 
-**What it does:** Print mouse/keyboard events to console as they happen.
-
-**Example output:**
-```
-Mouse delta: dx=5, dy=-3, qualifiers=0x00
-Key press: code=68, qualifier=SHIFT
-Wheel: UP
-```
+**What it does:** Master switch for console logging. When `false`, `log_mouse`/`log_keys` below have no effect - nothing is printed.
 
 **When to adjust:**
 - Development/troubleshooting: `true`
 - Production/silent mode: `false`
 
-### `debug.print_events` (Event Details)
+### `debug.log_mouse` (Mouse Motion)
+
+**Default:** `false`
+
+**What it does:** Print every mouse delta/discard event (`[mouse] ...` lines). High-frequency - one line per flush tick while the mouse is moving. Off by default so it doesn't drown out other console output; turn on only when debugging mouse acceleration/edge-trigger issues.
+
+**Example output:**
+```
+[mouse] SENT dx=+5 dy=-3  (raw_pc dx=5 dy=-3  rem=0.20,-0.10)
+```
+
+### `debug.log_keys` (Key Sends)
 
 **Default:** `true`
 
-**What it does:** When `enabled=true`, print detailed event info (currently same as `enabled`).
+**What it does:** Print every key event actually sent to the Amiga (`[key] ...` lines) - key, Amiga rawkey code, and qualifier byte. Low-frequency; left on by default since it's the primary tool for diagnosing keymap/qualifier issues.
+
+**Example output:**
+```
+[key] DOWN  key=<65: 'a'>          code=0x20 qual=0x00
+[key] UP    key=Key.cmd_r          code=0x67 qual=0x00
+```
 
 ---
 
@@ -328,7 +338,8 @@ Wheel: UP
 | Overshoots too much | Decrease `curve.ratio` to 0.3-0.4 |
 | Startup jumps/glitches | Increase `delta_max` to 120-150 |
 | Amiga overloaded / CPU max | Decrease `hz` and `hz_drag` by 10-15 each |
-| Console too noisy | Set `debug.enabled=false` |
+| Console too noisy from mouse spam | Set `debug.log_mouse=false` (default) |
+| Console too noisy entirely | Set `debug.enabled=false` |
 
 ---
 
