@@ -36,6 +36,11 @@ Get-Content .env | ForEach-Object {
     }
 }
 
+
+Write-Output "------------------------------------------------------------------"
+Write-Output "Build Release: $env:PROGRAM_NAME Version: $env:PROGRAM_VERSION"
+Write-Output "------------------------------------------------------------------"
+
 $escapedVersion = $env:PROGRAM_VERSION -replace '[^A-Za-z0-9._-]', '_'
 $ReleaseDir = "$env:PROGRAM_NAME-$escapedVersion"
 
