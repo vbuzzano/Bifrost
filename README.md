@@ -157,6 +157,10 @@ Updates every 0.5 seconds to reflect connection state changes in real-time.
 
 **Note:** Systray support requires `pystray` (installed via `pip install -r requirements.txt`). If not installed, the server runs normally without systray.
 
+## Known Limitations
+
+**Ctrl+Alt+Del cannot be captured.** While in Amiga focus mode, pressing Ctrl+Alt+Del on the PC keyboard still brings up Windows' secure screen (lock/task manager/sign out). This is Windows' Secure Attention Sequence (SAS): it is intercepted by the OS below any user-mode hook (including the `WH_KEYBOARD_LL` hook the PC server uses) specifically so that no application - malicious or not - can intercept credential entry. There is no supported way to suppress it from a user-mode process; only a signed kernel-mode keyboard filter driver could, which is out of scope for Bifrost's current architecture.
+
 ## Architecture
 
 ### PC Side (Server)

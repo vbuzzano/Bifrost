@@ -166,6 +166,15 @@ static ULONG s_lastCorrectionMs = 0;
 static UBYTE s_resistState      = RESIST_NONE;
 static ULONG s_resistStateSince = 0;
 
+// Left/Right Amiga qualifier state, tracked locally from the rawkey code
+// (not from the wire's QUAL_AMIGA bit, which is a single combined flag -
+// see qualToAmiga()).
+#define RAWKEY_LAMIGA 0x66
+#define RAWKEY_RAMIGA 0x67
+
+static BOOL s_lamigaHeld = FALSE;
+static BOOL s_ramigaHeld = FALSE;
+
 //===========================================================================
 // Forward declarations
 //===========================================================================
@@ -199,9 +208,15 @@ static inline UWORD qualToAmiga(UBYTE flags)
     if (flags & QUAL_RALT)    q |= IEQUALIFIER_RALT;
     if (flags & QUAL_LBUTTON) q |= IEQUALIFIER_LEFTBUTTON;
     if (flags & QUAL_RBUTTON) q |= IEQUALIFIER_RBUTTON;
-    // Server sends a single combined bit (doesn't distinguish which Amiga
-    // key) - set both qualifiers so shortcuts checking either one fire.
-    if (flags & QUAL_AMIGA)   q |= IEQUALIFIER_LCOMMAND | IEQUALIFIER_RCOMMAND;
+    // The wire's QUAL_AMIGA is a single combined bit (server can't tell us
+    // which physical Amiga key it came from - see keymap.py). Use the
+    // locally tracked per-side state instead, updated from the rawkey code
+    // itself (0x66/0x67) in the PKT_KEY handler, so LCOMMAND/RCOMMAND only
+    // reflect the side actually held - matching real keyboard behaviour and
+    // AmigaOS shortcuts that check one side specifically (e.g. Amiga+M
+    // screen swap firing for a Right Amiga press it shouldn't apply to).
+    if (s_lamigaHeld) q |= IEQUALIFIER_LCOMMAND;
+    if (s_ramigaHeld) q |= IEQUALIFIER_RCOMMAND;
     return q;
 }
 
@@ -894,8 +909,12 @@ void daemon(void)
         s_clientTcpSock  = tcpSock;
 
         // Fresh per-connection state: resistance machine, position/screen
-        // ground truth, and the correction clock.
+        // ground truth, the correction clock, and Amiga qualifier state
+        // (avoids a stuck LCOMMAND/RCOMMAND if the previous connection
+        // dropped mid-keypress).
         s_resistState = RESIST_NONE;
+        s_lamigaHeld  = FALSE;
+        s_ramigaHeld  = FALSE;
         correctPosition();
         s_lastCorrectionMs = currentTimeMs();
 
@@ -1060,6 +1079,19 @@ void daemon(void)
                     {
                         // pkt[6] = Amiga rawkey code (mapped on server side)
                         UWORD code = (UWORD)pkt[6];
+
+                        // Update per-side Amiga qualifier state before
+                        // computing ie_Qualifier below, so this same down/up
+                        // event already reflects its own key correctly.
+                        if (pkt[6] == RAWKEY_LAMIGA)
+                        {
+                            s_lamigaHeld = (pkt[7] != PKT_UP);
+                        }
+                        else if (pkt[6] == RAWKEY_RAMIGA)
+                        {
+                            s_ramigaHeld = (pkt[7] != PKT_UP);
+                        }
+
                         if (pkt[7] == PKT_UP)
                         {
                             code |= IECODE_UP_PREFIX;
