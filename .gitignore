@@ -141,6 +141,9 @@ tools/
 # Setup state and user config
 .env
 
+# Git worktrees
+.worktrees/
+
 # Temp files
 *.bak
 *.tmp
