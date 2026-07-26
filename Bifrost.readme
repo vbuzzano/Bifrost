@@ -1,4 +1,4 @@
-Short:         Share a PC's mouse & keyboard with your Amiga over the LAN
+Short:         ~ Amiga Mouse & Keyboard Controller [PROGRAM_DESC_SHORT]~
 Author:        reddoc007@gmail.com (Vincent Buzzano)
 Uploader:      reddoc007@gmail.com (Vincent Buzzano)
 Type:          driver/input
@@ -49,7 +49,7 @@ Any Amiga with a working TCP/IP stack providing bsdsocket.library:
   - Roadshow
   - ApolloOS networking stack
 
-No specific accelerator or chipset required - Bifrost talks to input.device
+No specific accelerator or chipset required - ~ Bifrost [PROGRAM_NAME]~ talks to input.device
 and the network stack only.
 
 == Recommended OS ==
@@ -76,24 +76,24 @@ INSTALLATION
 
 1. Download the ~ Bifrost [PROGRAM_NAME]~ release archive
 2. Extract to RAM: or any temporary location
-3. Double-click the `Install Bifrost` icon
+3. Double-click the `Install ~ Bifrost [PROGRAM_NAME]~` icon
 4. Follow the on-screen prompts
 5. Reboot when installation completes
 
-The Installer will copy `Bifrost` to `C:` and add it to your `S:User-Startup`
+The Installer will copy `~ Bifrost [PROGRAM_NAME]~` to `C:` and add it to your `S:User-Startup`
 automatically.
 
 
 == Method 2: Manual Installation ==
 
-1. Copy `Bifrost` to `C:` (or `SYS:C/`)
+1. Copy `~ Bifrost [PROGRAM_NAME]~` to `C:` (or `SYS:C/`)
 2. Add to `S:User-Startup`:
    ```
-   # BEGIN Bifrost
-   C:Bifrost >NIL:
-   # END Bifrost
+   # BEGIN ~ Bifrost [PROGRAM_NAME]~
+   C:~ Bifrost [PROGRAM_NAME]~ >NIL:
+   # END ~ Bifrost [PROGRAM_NAME]~
    ```
-4. Restart or run `Bifrost` manually
+4. Restart or run `~ Bifrost [PROGRAM_NAME]~` manually
 
 -----------------------------------------------------------------------------
 
