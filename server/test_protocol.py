@@ -62,3 +62,25 @@ def test_pack_client_state_disabled():
 def test_client_state_packet_type_value_matches_design():
     # Must stay in sync with src/bifrost.h PKT_CLIENT_STATE
     assert protocol.PKT_CLIENT_STATE == 0x08
+
+
+def test_unpack_hello_decodes_all_seven_fields():
+    data = bytes([protocol.PKT_HELLO, 50, 15, 80, 15, 20, 0x05, 5])
+    result = protocol.unpack_hello(data)
+    assert result == {
+        'pc_edge': 0x05,
+        'hz': 50,
+        'hz_drag': 15,
+        'delta_max': 80,
+        'speed': 1.5,
+        'curve_linear': 2.0,
+        'curve_ratio': 0.5,
+    }
+
+
+def test_unpack_hello_zero_curve_values():
+    data = bytes([protocol.PKT_HELLO, 50, 15, 80, 10, 0, 0x00, 0])
+    result = protocol.unpack_hello(data)
+    assert result['curve_linear'] == 0.0
+    assert result['curve_ratio'] == 0.0
+    assert result['pc_edge'] == 0
