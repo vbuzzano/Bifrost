@@ -179,6 +179,16 @@ static ULONG s_resistStateSince = 0;
 static BOOL s_lamigaHeld = FALSE;
 static BOOL s_ramigaHeld = FALSE;
 
+// Capslock qualifier state, tracked the same way as LAMIGA/RAMIGA above.
+// The server (capture.py's Capslock poller) sends rawkey 0x62 DOWN when PC
+// Capslock is engaged and UP when released - injecting that raw event alone
+// is not enough for AmigaOS to type uppercase, since keymap.library's
+// RawKeyConvert() decides case from ie_Qualifier's IEQUALIFIER_CAPSLOCK bit
+// on *every* subsequent key event, not from the isolated 0x62 press itself.
+#define RAWKEY_CAPSLOCK 0x62
+
+static BOOL s_capslockHeld = FALSE;
+
 //===========================================================================
 // Forward declarations
 //===========================================================================
@@ -222,6 +232,7 @@ static inline UWORD qualToAmiga(UBYTE flags)
     // screen swap firing for a Right Amiga press it shouldn't apply to).
     if (s_lamigaHeld) q |= IEQUALIFIER_LCOMMAND;
     if (s_ramigaHeld) q |= IEQUALIFIER_RCOMMAND;
+    if (s_capslockHeld) q |= IEQUALIFIER_CAPSLOCK;
     return q;
 }
 
@@ -727,6 +738,17 @@ static void setConfig(const struct BifrostConfig *cfg)
             send(s_clientTcpSock, (APTR)clientPkt, PKT_SIZE, 0);
         }
     }
+
+    if (cfg->capslockEnabled != s_capslockEnabled)
+    {
+        s_capslockEnabled = cfg->capslockEnabled;
+        if (!s_capslockEnabled)
+        {
+            // Avoid leaving IEQUALIFIER_CAPSLOCK stuck set for subsequent
+            // keys if the feature is turned off while Capslock was engaged.
+            s_capslockHeld = FALSE;
+        }
+    }
 }
 
 //===========================================================================
@@ -756,7 +778,8 @@ static void processControlMessages(BOOL *quitFlag)
             case BMSG_CMD_GET_CONFIG:
                 ctlMsg->config.port      = s_port;
                 ctlMsg->config.pcEdge    = s_pcEdge;
-                ctlMsg->config.clientEnabled = s_clientEnabled;
+                ctlMsg->config.clientEnabled   = s_clientEnabled;
+                ctlMsg->config.capslockEnabled = s_capslockEnabled;
                 ctlMsg->result = 0;
                 break;
 
@@ -1127,6 +1150,14 @@ void daemon(void)
                         // pkt[6] = Amiga rawkey code (mapped on server side)
                         UWORD code = (UWORD)pkt[6];
 
+                        if (pkt[6] == RAWKEY_CAPSLOCK && !s_capslockEnabled)
+                        {
+                            // Feature disabled via NOCAPSLOCK/SET_CONFIG -
+                            // ignore entirely: no injection, no state, as if
+                            // this packet was never sent.
+                            break;
+                        }
+
                         // Update per-side Amiga qualifier state before
                         // computing ie_Qualifier below, so this same down/up
                         // event already reflects its own key correctly.
@@ -1137,6 +1168,10 @@ void daemon(void)
                         else if (pkt[6] == RAWKEY_RAMIGA)
                         {
                             s_ramigaHeld = (pkt[7] != PKT_UP);
+                        }
+                        else if (pkt[6] == RAWKEY_CAPSLOCK)
+                        {
+                            s_capslockHeld = (pkt[7] != PKT_UP);
                         }
 
                         if (pkt[7] == PKT_UP)

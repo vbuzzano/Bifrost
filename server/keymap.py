@@ -43,7 +43,13 @@ AMIGA_RAWKEY: dict = {
     Key.f9:  0x58, Key.f10: 0x59, Key.f11: 0x4B, Key.f12: 0x6F,
     # Modifiers (also injected as key events)
     Key.shift:    0x60, Key.shift_r: 0x61,
-    Key.caps_lock: 0x62,
+    # Key.caps_lock intentionally NOT mapped here: physical press/release on
+    # the PC keyboard is a fast pulse (DOWN then UP within the same click),
+    # which is meaningless to forward as-is to the Amiga's mechanical-toggle
+    # Capslock (0x62). Capslock is instead driven exclusively by capture.py's
+    # _capslock_poller_loop / _send_capslock_event, which tracks PC Capslock
+    # as a held toggle state and sends DOWN only while it's engaged. Mapping
+    # it here too would double-send conflicting events for every keypress.
     Key.ctrl_l:   0x63, Key.ctrl:    0x63,
     Key.alt_l:    0x64, Key.alt:     0x64,
     Key.alt_r:    0x65, Key.alt_gr:  0x65,

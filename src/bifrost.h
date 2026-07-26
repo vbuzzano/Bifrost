@@ -49,6 +49,8 @@ struct BifrostConfig
     ULONG port;       // informational on GET_CONFIG; ignored by setConfig()
     UBYTE pcEdge;      // live-updatable
     BOOL  clientEnabled;   // live-updatable
+    BOOL  capslockEnabled; // live-updatable; also settable via CLI NOCAPSLOCK
+                           // (see main.c) - default TRUE
 };
 
 struct BifrostMsg

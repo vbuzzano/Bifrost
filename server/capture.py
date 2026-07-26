@@ -259,6 +259,18 @@ def _set_cursor_pos(x, y):
     if _IS_WIN:
         ctypes.windll.user32.SetCursorPos(x, y)
 
+
+def _get_pc_capslock_state() -> bool:
+    """Return True if PC Capslock is ON. Windows only."""
+    if _IS_WIN:
+        # GetKeyState(0x14) returns int; bit 0 indicates toggle state
+        # (different from GetAsyncKeyState which returns press state)
+        state = ctypes.windll.user32.GetKeyState(0x14)  # VK_CAPITAL = 0x14
+        return bool(state & 1)
+    else:
+        # Non-Windows: return False (will add keyboard event detection later if needed)
+        return False
+
 # ---------------------------------------------------------------------------
 # Focus state
 # ---------------------------------------------------------------------------
@@ -302,6 +314,14 @@ _raw     = None   # RawInputCapture instance (Windows Amiga mode)
 _pc_edge_mask       = EDGE_NONE
 _pc_edge_resistance = EdgeResistance()
 _pc_btn_held        = False   # suppress edge trigger while dragging on PC
+
+# Capslock state synchronization
+_last_pc_capslock_state = False  # last known state of PC Capslock (False=off, True=on)
+_capslock_lock = threading.Lock()
+# Guards against OS key-repeat re-toggling on every repeated DOWN while the
+# physical key is held (see _on_key_press) - only the first DOWN since the
+# last UP should flip _last_pc_capslock_state.
+_capslock_key_held = False
 
 
 def set_pc_edge(mask: int) -> None:
@@ -530,6 +550,26 @@ def _on_key_press(key):
             cur = _focus
         _set_focus(FOCUS_PC if cur == FOCUS_AMIGA else FOCUS_AMIGA)
         return   # do NOT return False - stops listener permanently
+
+    if key == Key.caps_lock:
+        # Toggle interactively from the raw press itself rather than relying
+        # solely on _capslock_poller_loop's GetKeyState polling: while in
+        # Amiga focus the keyboard listener runs with suppress=True, which
+        # blocks the event before Windows updates its own toggle-state bit -
+        # GetKeyState would never see the change, so the poller alone can't
+        # detect a Capslock press made while already focused on Amiga.
+        global _capslock_key_held, _last_pc_capslock_state
+        if not _capslock_key_held:
+            _capslock_key_held = True
+            with _capslock_lock:
+                _last_pc_capslock_state = not _last_pc_capslock_state
+                if _focus == FOCUS_AMIGA:
+                    _send_capslock_event(_last_pc_capslock_state)
+                if DEBUG:
+                    print(f'[capslock] Interactive toggle -> '
+                          f'{"ON" if _last_pc_capslock_state else "OFF"}')
+        return
+
     q = QUAL_MAP.get(key)
     if q:
         _qualifiers |= q
@@ -544,6 +584,10 @@ def _on_key_press(key):
 def _on_key_release(key):
     global _qualifiers
     if key == TOGGLE_KEY:
+        return
+    if key == Key.caps_lock:
+        global _capslock_key_held
+        _capslock_key_held = False
         return
     q = QUAL_MAP.get(key)
     if q:
@@ -567,6 +611,26 @@ def _on_scroll(x, y, dx, dy):
         if DEBUG:
             print(f'[mouse] wheel {("UP" if dy > 0 else "DOWN")} SENT')
         _send_fn(pack_wheel(direction, _qual()))
+
+
+def _send_capslock_event(pressed):
+    """Send a synthetic Capslock key event (0x62) to the Amiga."""
+    if _send_fn:
+        code = 0x62  # Amiga Capslock rawkey
+        if LOG_KEYS:
+            print(f'[key] CAPSLOCK {"DOWN" if pressed else "UP":6s} code=0x{code:02X}')
+        _send_fn(pack_key(code, pressed, _qual()))
+
+
+def _resync_capslock_to_amiga():
+    """Resend the current PC Capslock state to the Amiga.
+
+    The poller (_capslock_poller_loop) only fires on state *changes*, so if
+    Capslock was already on/off before switching focus to Amiga, the Amiga
+    would never learn the current state without this explicit resend. Called
+    from _do_set_focus every time focus enters Amiga mode."""
+    with _capslock_lock:
+        _send_capslock_event(_last_pc_capslock_state)
 
 # ---------------------------------------------------------------------------
 # Focus switch
@@ -611,6 +675,7 @@ def _do_set_focus(new_focus, entry_percent=None):
         label = 'AMIGA  (Scroll Lock / Pause to release)'
         if entry_percent is not None and _send_fn:
             _send_fn(pack_focus_enter(entry_percent))
+        _resync_capslock_to_amiga()
     else:
         _cursor_amiga_exit()
         _mouse_btns = 0
@@ -673,6 +738,32 @@ def _watchdog_loop():
                 _cursor_amiga_exit()
                 _set_focus(FOCUS_PC)
 
+
+def _capslock_poller_loop():
+    """Poll PC Capslock state every 200ms while in PC focus, to catch up
+    _last_pc_capslock_state with reality for cases the interactive
+    _on_key_press/_on_key_release toggle can't see (e.g. Capslock already ON
+    when Bifrost started).
+
+    Must stay a no-op while focus is on Amiga: the keyboard listener runs
+    suppressed there (see _do_set_focus), which blocks Windows from ever
+    updating GetKeyState's toggle bit - so during Amiga focus GetKeyState is
+    stale/unreliable, and "correcting" _last_pc_capslock_state against it
+    would just clobber the interactive handler's correct value (that's
+    exactly the bug this guard fixes: a Capslock press while already in
+    Amiga focus got silently undone ~200ms later by this poller)."""
+    global _last_pc_capslock_state
+    while True:
+        time.sleep(0.2)  # Poll every 200ms
+        if _focus == FOCUS_AMIGA:
+            continue
+        current_state = _get_pc_capslock_state()
+        with _capslock_lock:
+            if current_state != _last_pc_capslock_state:
+                _last_pc_capslock_state = current_state
+                if DEBUG:
+                    print(f'[capslock] PC state changed to {"ON" if current_state else "OFF"}')
+
 # ---------------------------------------------------------------------------
 # start()
 # ---------------------------------------------------------------------------
@@ -693,6 +784,7 @@ def start(send_fn, connected_fn=None):
 
     threading.Thread(target=_mouse_timer_loop, daemon=True).start()
     threading.Thread(target=_watchdog_loop, daemon=True).start()
+    threading.Thread(target=_capslock_poller_loop, daemon=True).start()
 
     ml = mouse.Listener(on_move=_on_move_pc, on_click=_on_click_pc, on_scroll=_on_scroll, suppress=False)
     kl = keyboard.Listener(on_press=_on_key_press, on_release=_on_key_release,

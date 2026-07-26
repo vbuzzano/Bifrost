@@ -36,6 +36,7 @@ struct DosLibrary *DOSBase;
 ULONG s_port       = Bifrost_DEFAULT_PORT;
 UBYTE s_pcEdge      = EDGE_NONE;
 UBYTE s_amigaEdge   = EDGE_NONE;
+BOOL  s_capslockEnabled = TRUE;  // FALSE via CLI "NOCAPSLOCK"
 
 // Version string (read by AmigaOS version command)
 const char version[] = VERSION_STRING;
@@ -45,6 +46,7 @@ const char version[] = VERSION_STRING;
 //===========================================================================
 
 static BOOL parseEdgeToken(UBYTE *p, UBYTE *outMask, LONG *outLen);
+static BOOL matchKeyword(UBYTE *p, const char *kw, LONG *outLen);
 static ULONG sendBifrostMessage(struct MsgPort *port, UBYTE cmd, ULONG value);
 static ULONG sendConfigMessage(struct MsgPort *port, UBYTE cmd, struct BifrostConfig *cfg);
 
@@ -102,6 +104,33 @@ static BOOL parseEdgeToken(UBYTE *p, UBYTE *outMask, LONG *outLen)
                 *outLen  = len;
                 return TRUE;
             }
+        }
+    }
+    return FALSE;
+}
+
+//===========================================================================
+// matchKeyword - Case-insensitive whole-token match against a fixed
+// keyword, same (c|32) bit-trick style as parseEdgeToken()/STOP/STATUS
+// above. Used for the standalone "NOCAPSLOCK" CLI token.
+//===========================================================================
+
+static BOOL matchKeyword(UBYTE *p, const char *kw, LONG *outLen)
+{
+    LONG len = 0;
+    while (kw[len])
+    {
+        UBYTE pc = p[len];
+        UBYTE kc = (UBYTE)kw[len];
+        if ((pc | 32) != (kc | 32)) { return FALSE; }
+        len++;
+    }
+    {
+        UBYTE term = p[len];
+        if (term == '\0' || term == ' ' || term == '\t' || term == '\n')
+        {
+            *outLen = len;
+            return TRUE;
         }
     }
     return FALSE;
@@ -335,10 +364,11 @@ LONG _start(void)
     // Show usage on '?'
     if (*args == '?')
     {
-        Print("Usage: " PROGRAM_NAME " [port] [edge] | STATUS | STOP");
-        PrintF("  port   - TCP port (default: %ld, discovery: port+1)", (LONG)Bifrost_DEFAULT_PORT);
-        Print("  edge   - TOP/BOTTOM/LEFT/RIGHT/TOPLEFT/TOPRIGHT/BOTTOMLEFT/BOTTOMRIGHT");
-        Print("           PC edge that switches focus to Amiga (default: none = disabled)");
+        Print("Usage: " PROGRAM_NAME " [port] [edge] [NOCAPSLOCK] | STATUS | STOP");
+        PrintF("  port       - TCP port (default: %ld, discovery: port+1)", (LONG)Bifrost_DEFAULT_PORT);
+        Print("  edge       - TOP/BOTTOM/LEFT/RIGHT/TOPLEFT/TOPRIGHT/BOTTOMLEFT/BOTTOMRIGHT");
+        Print("               PC edge that switches focus to Amiga (default: none = disabled)");
+        Print("  NOCAPSLOCK - disable PC Capslock -> Amiga synchronization (default: enabled)");
         Print("  STATUS - query the running daemon's connection status");
         Print("  STOP   - disconnect and quit the running daemon");
         Print("  Server is discovered automatically via UDP broadcast.");
@@ -434,18 +464,20 @@ LONG _start(void)
             return RETURN_WARN;
         }
 
-        cfg.pcEdge = s_pcEdge;
+        cfg.pcEdge          = s_pcEdge;
+        cfg.capslockEnabled = s_capslockEnabled;
         sendConfigMessage(existingPort, BMSG_CMD_SET_CONFIG, &cfg);
-        PrintF(PROGRAM_NAME ": config updated (edge=0x%02lx)", (LONG)s_pcEdge);
+        PrintF(PROGRAM_NAME ": config updated (edge=0x%02lx, capslock=%s)",
+               (LONG)s_pcEdge, s_capslockEnabled ? "on" : "off");
         CloseLibrary((struct Library *)DOSBase);
         return RETURN_OK;
     }
 
-    // Parse up to 2 whitespace-separated tokens, any order: a numeric
-    // port and/or an edge keyword.
+    // Parse up to 3 whitespace-separated tokens, any order: a numeric
+    // port, an edge keyword, and/or NOCAPSLOCK.
     {
         LONG tok;
-        for (tok = 0; tok < 2; tok++)
+        for (tok = 0; tok < 3; tok++)
         {
             while (*args == ' ' || *args == '\t')
             {
@@ -475,10 +507,16 @@ LONG _start(void)
             {
                 UBYTE edgeMask;
                 LONG  edgeLen;
+                LONG  kwLen;
                 if (parseEdgeToken(args, &edgeMask, &edgeLen))
                 {
                     s_pcEdge = edgeMask;
                     args += edgeLen;
+                }
+                else if (matchKeyword(args, "NOCAPSLOCK", &kwLen))
+                {
+                    s_capslockEnabled = FALSE;
+                    args += kwLen;
                 }
                 else
                 {
@@ -520,6 +558,10 @@ LONG _start(void)
     {
         PrintF(PROGRAM_NAME ": edge switching enabled (PC edge=0x%02lx, Amiga edge=0x%02lx)",
                (LONG)s_pcEdge, (LONG)s_amigaEdge);
+    }
+    if (!s_capslockEnabled)
+    {
+        Print(PROGRAM_NAME ": Capslock synchronization disabled (NOCAPSLOCK)");
     }
 
     CloseLibrary((struct Library *)DOSBase);
