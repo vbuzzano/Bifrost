@@ -18,8 +18,8 @@ negotiation, just two hand-written implementations of the same layout.
 
 | Message | Direction | Bytes | Content |
 |---|---|---|---|
-| `Bifrost_DISCOVER` | PC → subnet broadcast | 15 | ASCII literal |
-| `Bifrost_HERE` | Amiga → PC | 11 | ASCII literal |
+| `Bifrost_DISCOVER` | PC → subnet broadcast | 16 | ASCII literal |
+| `Bifrost_HERE` | Amiga → PC | 12 | ASCII literal |
 
 1. The PC broadcasts `Bifrost_DISCOVER` to its subnet's broadcast address
    every 3 seconds, on **UDP port = TCP port + 1** (default `7891`).
