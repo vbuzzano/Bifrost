@@ -69,6 +69,7 @@ const char version[] = VERSION_STRING;
 //===========================================================================
 
 static BOOL parseEdgeToken(UBYTE *p, UBYTE *outMask, LONG *outLen);
+static void classifyStopStatus(UBYTE *args, BOOL *outIsStop, BOOL *outIsStatus);
 static BOOL matchKeyword(UBYTE *p, const char *kw, LONG *outLen);
 static BOOL matchKeyValue(UBYTE *p, const char *key, ULONG *outValue, LONG *outLen);
 static BOOL matchDecimalKeyValue(UBYTE *p, const char *key, UBYTE *outValue, LONG *outLen);
@@ -138,8 +139,28 @@ static BOOL parseEdgeToken(UBYTE *p, UBYTE *outMask, LONG *outLen)
 }
 
 //===========================================================================
+// classifyStopStatus - Pure classification only (mirrors XMouseD's
+// parseArguments(): recognize the mode, don't act on it). Whether it's
+// STOP/STATUS and what to actually DO about it (Forbid/FindPort/
+// sendBifrostMessage/printing) stays in _start() - same split XMouseD
+// keeps between its parseArguments() and the if-chain that follows it.
+// Case-insensitive via the (c|32) bit trick, must be the whole (only)
+// token - "STOPX" or "STATUSFOO" don't match.
+//===========================================================================
+
+static void classifyStopStatus(UBYTE *args, BOOL *outIsStop, BOOL *outIsStatus)
+{
+    UBYTE *p = args;
+    *outIsStop   = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='o' && (p[3]|32)=='p' &&
+                   (p[4]=='\0' || p[4]==' ' || p[4]=='\t' || p[4]=='\n');
+    *outIsStatus = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='a' && (p[3]|32)=='t' &&
+                   (p[4]|32)=='u' && (p[5]|32)=='s' &&
+                   (p[6]=='\0' || p[6]==' ' || p[6]=='\t' || p[6]=='\n');
+}
+
+//===========================================================================
 // matchKeyword - Case-insensitive whole-token match against a fixed
-// keyword, same (c|32) bit-trick style as parseEdgeToken()/STOP/STATUS
+// keyword, same (c|32) bit-trick style as parseEdgeToken()/classifyStopStatus()
 // above. Used for the standalone "NOCAPSLOCK" CLI token.
 //===========================================================================
 
@@ -759,15 +780,12 @@ LONG _start(void)
     }
 
     // STOP / STATUS: talk to an already-running daemon instead of parsing
-    // port/edge args or launching a new one. Case-insensitive, must be the
-    // whole (only) token - "STOPX" or "STATUSFOO" don't match.
+    // port/edge args or launching a new one. classifyStopStatus() only
+    // recognizes the mode (mirrors XMouseD's parseArguments()) - acting on
+    // it (Forbid/FindPort/sendBifrostMessage/printing) stays here.
     {
-        UBYTE *p = args;
-        BOOL isStop   = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='o' && (p[3]|32)=='p' &&
-                        (p[4]=='\0' || p[4]==' ' || p[4]=='\t' || p[4]=='\n');
-        BOOL isStatus = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='a' && (p[3]|32)=='t' &&
-                        (p[4]|32)=='u' && (p[5]|32)=='s' &&
-                        (p[6]=='\0' || p[6]==' ' || p[6]=='\t' || p[6]=='\n');
+        BOOL isStop, isStatus;
+        classifyStopStatus(args, &isStop, &isStatus);
 
         if (isStop || isStatus)
         {
