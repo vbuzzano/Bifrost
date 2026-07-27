@@ -546,6 +546,7 @@ static ULONG sendBifrostMessage(struct MsgPort *port, UBYTE cmd, ULONG value)
     struct timerequest   *timerReq  = NULL;
     ULONG                 result    = 0xFFFFFFFF;  // error by default
     ULONG                 replySig, timerSig, signals;
+    BOOL                  timedOut  = FALSE;
 
     replyPort = CreateMsgPort();
     if (!replyPort)
@@ -614,17 +615,26 @@ static ULONG sendBifrostMessage(struct MsgPort *port, UBYTE cmd, ULONG value)
     {
         GetMsg(timerPort);
         Print(PROGRAM_NAME ": ERROR - daemon not responding (timeout)");
-        result = 0xFFFFFFFF;
-        // Message is still pending in the daemon's port - nothing more we
-        // can do from here; the daemon will process/reply to it eventually
-        // and this (now-abandoned) reply port simply never sees it.
+        result   = 0xFFFFFFFF;
+        timedOut = TRUE;
+        // Message is still pending in the daemon's port - the daemon may
+        // GetMsg()/ReplyMsg() it after we've moved on. msg/replyPort are
+        // deliberately leaked below (not freed/deleted) rather than risk
+        // the daemon writing into freed memory and ReplyMsg()-ing to a
+        // deleted port - a bounded, rare leak beats a use-after-free.
     }
 
-    FreeMem(msg, sizeof(struct BifrostMsg));
+    if (!timedOut)
+    {
+        FreeMem(msg, sizeof(struct BifrostMsg));
+    }
     CloseDevice((struct IORequest *)timerReq);
     DeleteIORequest((struct IORequest *)timerReq);
     DeleteMsgPort(timerPort);
-    DeleteMsgPort(replyPort);
+    if (!timedOut)
+    {
+        DeleteMsgPort(replyPort);
+    }
 
     return result;
 }
@@ -646,6 +656,7 @@ static ULONG sendConfigMessage(struct MsgPort *port, UBYTE cmd, struct BifrostCo
     struct timerequest  *timerReq  = NULL;
     ULONG                result    = 0xFFFFFFFF;
     ULONG                replySig, timerSig, signals;
+    BOOL                 timedOut  = FALSE;
 
     replyPort = CreateMsgPort();
     if (!replyPort)
@@ -716,14 +727,24 @@ static ULONG sendConfigMessage(struct MsgPort *port, UBYTE cmd, struct BifrostCo
     {
         GetMsg(timerPort);
         Print(PROGRAM_NAME ": ERROR - daemon not responding (timeout)");
-        result = 0xFFFFFFFF;
+        result   = 0xFFFFFFFF;
+        timedOut = TRUE;
+        // See sendBifrostMessage()'s timeout branch: msg/replyPort are
+        // deliberately leaked here, not freed, in case the daemon replies
+        // late into what would otherwise be freed/deleted memory.
     }
 
-    FreeMem(msg, sizeof(struct BifrostMsg));
+    if (!timedOut)
+    {
+        FreeMem(msg, sizeof(struct BifrostMsg));
+    }
     CloseDevice((struct IORequest *)timerReq);
     DeleteIORequest((struct IORequest *)timerReq);
     DeleteMsgPort(timerPort);
-    DeleteMsgPort(replyPort);
+    if (!timedOut)
+    {
+        DeleteMsgPort(replyPort);
+    }
 
     return result;
 }
@@ -903,7 +924,15 @@ LONG _start(void)
             cfg.mouseHzDrag = cfg.mouseHz;
         }
 
-        sendConfigMessage(existingPort, BMSG_CMD_SET_CONFIG, &cfg);
+        {
+            ULONG setResult = sendConfigMessage(existingPort, BMSG_CMD_SET_CONFIG, &cfg);
+            if (setResult == 0xFFFFFFFF)
+            {
+                Print(PROGRAM_NAME ": ERROR - failed to update running daemon");
+                CloseLibrary((struct Library *)DOSBase);
+                return RETURN_FAIL;
+            }
+        }
         printConfigSummary(&cfg, "config updated");
         CloseLibrary((struct Library *)DOSBase);
         return RETURN_OK;
