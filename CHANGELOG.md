@@ -23,6 +23,49 @@ All notable changes to Bifrost are documented in this file.
   client-state, edge-trigger) - now logged with `Errno()` instead of
   disappearing without a trace
 
+## [0.5.0] - 2026-07-27
+
+### Changed
+- **Mouse-tuning config ownership moved from PC to Amiga daemon** - `HZ`,
+  `HZDRAG`, `SPEED`, `DELTAMAX`, `CURVELINEAR`, `CURVERATIO` are now
+  Amiga-side CLI arguments (`Bifrost HZ=60 SPEED=1.5 ...`) instead of
+  PC-side `bifrost_config.json` fields; `docs/CONFIGURATION.md` trimmed to
+  match (PC-side mouse-tuning section removed)
+- Running `Bifrost` again while an instance is already running now live-pushes
+  any edge/mouse-tuning `KEY=VALUE` args this invocation specified to the
+  running daemon via `GET_CONFIG`/`SET_CONFIG`, instead of only the edge
+
+### Fixed
+- Several CLI live-update bugs around merging a second invocation's args into
+  the running daemon's config (previously only `s_pcEdge` was live-updatable)
+
+### Improved
+- Extracted `classifyStopStatus()` in `main.c`, mirroring XMouseD's
+  parse/act separation (internal refactor, no behavior change)
+
+## [0.4.3] - 2026-07-26
+
+### Added
+- `PKT_HEARTBEAT` (replaces `PKT_PING`) - sent by the Amiga daemon ~every 1s
+  regardless of other traffic, carries the current Amiga cursor position;
+  lets the PC server detect a stalled Amiga main loop independent of any
+  PC→Amiga packet backlog
+- PC Capslock state sync to Amiga (drives `IEQUALIFIER_CAPSLOCK` so
+  keymap.library types uppercase correctly), `NOCAPSLOCK` CLI arg to disable it
+
+### Fixed
+- Left/Right Amiga key qualifiers (`LCOMMAND`/`RCOMMAND`) now track per-side
+  state from the rawkey code instead of setting both from the wire's single
+  combined `QUAL_AMIGA` bit - AmigaOS shortcuts that check one side
+  specifically (e.g. Amiga+M) now behave correctly
+
+### Improved
+- Logging and connection status reporting (`daemon.c`, `tcp_server.py`)
+
+### Documentation
+- Documented the Ctrl+Alt+Del/Windows Secure Attention Sequence limitation
+  (cannot be captured from a user-mode hook) in README's Known Limitations
+
 ## [0.4.1] - 2026-07-22
 
 ### Changed
