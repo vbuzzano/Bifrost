@@ -2,6 +2,27 @@
 
 All notable changes to Bifrost are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **UDP discovery protocol string lengths** - `DISC_MSG_LEN`/`DISC_REPLY_LEN` were
+  one byte short (15/11 instead of 16/12), truncating the last character of
+  `Bifrost_DISCOVER`/`Bifrost_HERE` on the wire and weakening/breaking discovery
+  matching depending on the server's comparison strictness
+- **Use-after-free on control message timeout** - `sendBifrostMessage()`/
+  `sendConfigMessage()` (main.c) freed the message and reply port on timeout
+  even though the daemon could still write into and reply to them later;
+  they're now deliberately leaked (bounded, rare) instead
+- **Silently-ignored `SET_CONFIG` result** on the "already running" live-update
+  path in `_start()` - a daemon that failed to apply the pushed config was
+  reported as "config updated" and exited `RETURN_OK` regardless
+- **`HZDRAG` could exceed `HZ` via `SET_CONFIG`** - the CLI already clamped
+  this, but a direct `SET_CONFIG` (e.g. from BifrostCX) bypassed it; the
+  invariant is now enforced in `daemon.c`'s `setConfig()` itself
+- **Failed `send()` calls were silently swallowed** (heartbeat, hello,
+  client-state, edge-trigger) - now logged with `Errno()` instead of
+  disappearing without a trace
+
 ## [0.4.1] - 2026-07-22
 
 ### Changed
