@@ -409,7 +409,7 @@ DEALINGS IN THE SOFTWARE.
 
   @{b}Author@{ub}:        Vincent Buzzano
   @{b}Version@{ub}:       ~ 0.5.0 [PROGRAM_VERSION]~
-  @{b}Date@{ub}:          ~ 26.07.2026 [PROGRAM_DATE]~
+  @{b}Date@{ub}:          ~ 27.07.2026 [PROGRAM_DATE]~
   @{b}Toolchain@{ub}:     VBCC m68k-amigaos compiler (Amiga client), Python 3 (PC server)
 
 @{b}Special Thanks@{ub}:
