@@ -4,14 +4,16 @@ Long-term architecture and feature phases for Bifrost remote input gateway.
 
 ## Current Status
 
-**v0.3** (2026-07-20) - Production ready
+**v0.5.0** (2026-07-27) - Production ready
 - ✅ Remote mouse & keyboard forwarding (PC → Amiga)
 - ✅ Piecewise-linear acceleration curve
 - ✅ Sub-pixel precision (float accumulator)
 - ✅ Low-latency TCP/IP (TCP_NODELAY)
 - ✅ Input toggle (Scroll Lock, screen corner)
 - ✅ Edge detection & boundary handling
-- ✅ Configurable polling rate (MOUSE_HZ)
+- ✅ Amiga-side CLI-configurable mouse tuning (HZ/HZDRAG/SPEED/DELTAMAX/CURVELINEAR/CURVERATIO), live-pushable to a running daemon
+- ✅ PC Capslock sync, NOCAPSLOCK toggle
+- ✅ Heartbeat liveness (`PKT_HEARTBEAT`), STATUS/STOP control port
 
 ---
 
@@ -25,7 +27,7 @@ Long-term architecture and feature phases for Bifrost remote input gateway.
 - ✅ Map PC INS → Amiga Help key
 - ✅ Left/Right Alt → Amiga Left/Right Alt (already working)
 - ✅ Left/Right Amiga as a held qualifier (QUAL_AMIGA → IEQUALIFIER_LCOMMAND/RCOMMAND) so AmigaOS shortcuts like Amiga+M recognize it, not just the raw key press/release
-- Capslock Hack ?
+- ✅ Capslock: PC Capslock state synced to Amiga (IEQUALIFIER_CAPSLOCK), `NOCAPSLOCK` CLI toggle to disable
 - **Impact:** Full keyboard compatibility with Amiga layouts
 
 ### Phase 2.2: Auto-Discovery Port Negotiation
@@ -39,10 +41,10 @@ Long-term architecture and feature phases for Bifrost remote input gateway.
 - ✅ Add `STATUS` argument - query connection status (via a public message port, `Bifrost_Port`)
 - ✅ Add `STOP` argument - disconnect and quit gracefully
 - ✅ Refuse to launch a second daemon while one is already running (was a latent multi-instance bug - two daemons would silently fight over the same UDP/TCP ports and input.device)
-- 🔜 Live config updates via PORT protocol (like XMouseD) - deferred: no live-tunable config value identified yet for the Amiga client (unlike XMouseD's config byte); revisit once one exists
+- ✅ Live config updates via the control port (edge + mouse-tuning fields, `GET_CONFIG`/`SET_CONFIG`) - a second `Bifrost` invocation now pushes its args to the running daemon
 - **Impact:** Better process control and scriptability from shell
 
-**Estimated:** Phase 2 complete by v0.4
+**Status:** 2.1 and 2.3 complete as of v0.5.0; 2.2 (port auto-negotiation) still open
 
 ---
 
