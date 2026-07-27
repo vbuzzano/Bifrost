@@ -240,6 +240,17 @@ make upload
 
 ## Version History
 
+### v0.5.0
+- ✅ Mouse-tuning config (`HZ`/`HZDRAG`/`SPEED`/`DELTAMAX`/`CURVELINEAR`/`CURVERATIO`) moved from PC config file to Amiga-side CLI args
+- ✅ Live config push to an already-running daemon (edge + mouse-tuning) via a second `Bifrost` invocation
+- ✅ Fixed several CLI live-update merge bugs
+
+### v0.4.3
+- ✅ `PKT_HEARTBEAT` replaces `PKT_PING` - liveness independent of packet backlog, carries Amiga cursor position
+- ✅ PC Capslock state sync to Amiga, `NOCAPSLOCK` CLI toggle
+- ✅ Fixed Left/Right Amiga key qualifiers to track per-side state instead of always setting both
+- ✅ Improved logging and connection status reporting
+
 ### v0.4.1 
 - ✅ Refactor source codes
 - ✅ split the commodity part to another project
