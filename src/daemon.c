@@ -316,7 +316,10 @@ static void sendHeartbeatIfDue(LONG sock)
         hbPkt[3] = (UBYTE)((UWORD)s_curX & 0xFF);
         hbPkt[4] = (UBYTE)((UWORD)s_curY >> 8);
         hbPkt[5] = (UBYTE)((UWORD)s_curY & 0xFF);
-        send(sock, (APTR)hbPkt, PKT_SIZE, 0);
+        if (send(sock, (APTR)hbPkt, PKT_SIZE, 0) < 0)
+        {
+            PrintF(PROGRAM_NAME ": WARNING - heartbeat send failed (err=%ld)", (LONG)Errno());
+        }
         s_lastHeartbeatMs = nowMs;
     }
 }
@@ -717,7 +720,10 @@ static void sendHelloPacket(LONG sock)
     helloPkt[5] = s_curveLinear;
     helloPkt[6] = s_pcEdge;
     helloPkt[7] = s_curveRatio;
-    send(sock, (APTR)helloPkt, PKT_SIZE, 0);
+    if (send(sock, (APTR)helloPkt, PKT_SIZE, 0) < 0)
+    {
+        PrintF(PROGRAM_NAME ": WARNING - hello send failed (err=%ld)", (LONG)Errno());
+    }
 }
 
 //===========================================================================
@@ -762,6 +768,12 @@ static void setConfig(const struct BifrostConfig *cfg)
     if (s_mouseSpeed < 2)  { s_mouseSpeed = 2; }
     if (s_mouseSpeed > 30) { s_mouseSpeed = 30; }
 
+    // HZDRAG must not exceed HZ - same invariant main.c's CLI parsing
+    // enforces (parseArguments()/the live-update merge in _start()), but
+    // SET_CONFIG can also arrive directly from BifrostCX/scripts bypassing
+    // that CLI path entirely, same reasoning as the mouseSpeed clamp above.
+    if (s_mouseHzDrag > s_mouseHz) { s_mouseHzDrag = s_mouseHz; }
+
     // Re-announce to an already-connected server whenever any of the 7
     // PKT_HELLO fields actually changed - otherwise a live BifrostCX/CLI
     // change while connected would never reach the server until reconnect.
@@ -784,7 +796,10 @@ static void setConfig(const struct BifrostConfig *cfg)
             for (i = 0; i < PKT_SIZE; i++) clientPkt[i] = 0;
             clientPkt[0] = PKT_CLIENT_STATE;
             clientPkt[6] = s_clientEnabled ? 1 : 0;
-            send(s_clientTcpSock, (APTR)clientPkt, PKT_SIZE, 0);
+            if (send(s_clientTcpSock, (APTR)clientPkt, PKT_SIZE, 0) < 0)
+            {
+                PrintF(PROGRAM_NAME ": WARNING - client-state send failed (err=%ld)", (LONG)Errno());
+            }
         }
     }
 
@@ -1044,7 +1059,10 @@ void daemon(void)
             for (i = 0; i < PKT_SIZE; i++) clientPkt[i] = 0;
             clientPkt[0] = PKT_CLIENT_STATE;
             clientPkt[6] = s_clientEnabled ? 1 : 0;
-            send(tcpSock, (APTR)clientPkt, PKT_SIZE, 0);
+            if (send(tcpSock, (APTR)clientPkt, PKT_SIZE, 0) < 0)
+            {
+                PrintF(PROGRAM_NAME ": WARNING - client-state send failed (err=%ld)", (LONG)Errno());
+            }
         }
 
         // =====================================================
@@ -1164,7 +1182,10 @@ void daemon(void)
                             for (ti = 0; ti < PKT_SIZE; ti++) trigPkt[ti] = 0;
                             trigPkt[0] = PKT_EDGE_TRIGGER;
                             trigPkt[6] = percentAlongEdge(s_curX, s_curY, s_screenW, s_screenH, s_amigaEdge);
-                            send(tcpSock, (APTR)trigPkt, PKT_SIZE, 0);
+                            if (send(tcpSock, (APTR)trigPkt, PKT_SIZE, 0) < 0)
+                            {
+                                PrintF(PROGRAM_NAME ": WARNING - edge-trigger send failed (err=%ld)", (LONG)Errno());
+                            }
                             Print(PROGRAM_NAME ": edge trigger fired -> switching to PC");
                         }
                         break;
