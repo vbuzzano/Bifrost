@@ -198,6 +198,7 @@ static BOOL daemonInit(void);
 static void daemonCleanup(LONG sock);
 static inline void injectEvent(struct InputEvent *ev);
 static inline UWORD qualToAmiga(UBYTE flags);
+static void sendHelloPacket(LONG sock);
 static LONG connectWithTimeout(LONG sock, struct sockaddr_in *sa, LONG timeoutSecs);
 static ULONG currentTimeMs(void);
 static void correctPosition(void);
@@ -695,34 +696,82 @@ static void daemonCleanup(LONG sock)
 }
 
 //===========================================================================
+// sendHelloPacket - Build and send the full PKT_HELLO handshake: pcEdge
+// (code byte, its existing position) plus the 6 mouse-tuning values packed
+// one-per-byte into the previously-unused flags/x/y/state bytes (not
+// interpreted as int16 x/y here - see docs/PROTOCOL.md). Shared by the
+// initial post-connect send and setConfig()'s live re-send so both stay
+// in sync with a single byte layout.
+//===========================================================================
+
+static void sendHelloPacket(LONG sock)
+{
+    UBYTE helloPkt[PKT_SIZE];
+    LONG  i;
+    for (i = 0; i < PKT_SIZE; i++) helloPkt[i] = 0;
+    helloPkt[0] = PKT_HELLO;
+    helloPkt[1] = s_mouseHz;
+    helloPkt[2] = s_mouseHzDrag;
+    helloPkt[3] = s_mouseDeltaMax;
+    helloPkt[4] = s_mouseSpeed;
+    helloPkt[5] = s_curveLinear;
+    helloPkt[6] = s_pcEdge;
+    helloPkt[7] = s_curveRatio;
+    send(sock, (APTR)helloPkt, PKT_SIZE, 0);
+}
+
+//===========================================================================
 // setConfig - Apply a BifrostConfig sent via BMSG_CMD_SET_CONFIG. Updates
 // everything except cfg->port (immutable at runtime - a port change needs
 // a restart, reported by the caller comparing cfg->port against the
 // GET_CONFIG it read first; setConfig() itself doesn't need to know or
 // care whether the port matched). Re-sends PKT_HELLO/PKT_CLIENT_STATE to
-// an already-connected server when pcEdge/clientEnabled actually change -
-// otherwise a live BifrostCX edge/enable change while connected would
-// never reach the server until the next reconnect.
+// an already-connected server when any of its 7 fields (edge + mouse
+// tuning) or clientEnabled actually change - otherwise a live BifrostCX
+// edge/enable change while connected would never reach the server until
+// the next reconnect.
 //===========================================================================
 
 static void setConfig(const struct BifrostConfig *cfg)
 {
-    UBYTE oldPcEdge = s_pcEdge;
+    UBYTE oldPcEdge      = s_pcEdge;
+    UBYTE oldMouseHz     = s_mouseHz;
+    UBYTE oldMouseHzDrag = s_mouseHzDrag;
+    UBYTE oldMouseSpeed  = s_mouseSpeed;
+    UBYTE oldDeltaMax    = s_mouseDeltaMax;
+    UBYTE oldCurveLinear = s_curveLinear;
+    UBYTE oldCurveRatio  = s_curveRatio;
+    BOOL  helloChanged;
 
-    s_pcEdge    = cfg->pcEdge;
-    s_amigaEdge = oppositeEdge(s_pcEdge);
+    s_pcEdge        = cfg->pcEdge;
+    s_amigaEdge     = oppositeEdge(s_pcEdge);
+    s_mouseHz       = cfg->mouseHz;
+    s_mouseHzDrag   = cfg->mouseHzDrag;
+    s_mouseSpeed    = cfg->mouseSpeed;
+    s_mouseDeltaMax = cfg->mouseDeltaMax;
+    s_curveLinear   = cfg->curveLinear;
+    s_curveRatio    = cfg->curveRatio;
 
-    // Re-announce to an already-connected server - PKT_HELLO is otherwise
-    // only sent once, right after connect, so a live edge change would
-    // never reach a server that connected before this SET_CONFIG arrived.
-    if (s_pcEdge != oldPcEdge && s_clientTcpSock >= 0)
+    // Clamp to 0.2-3.0 (x10 fixed-point: 2-30) regardless of source - CLI
+    // parsing (main.c) already clamps, but SET_CONFIG can also arrive
+    // directly from BifrostCX/scripts, bypassing that check entirely, so
+    // this is the one true enforcement point for the invariant. A very
+    // high speed sends packets already clamped to the max per-event delta
+    // almost every time, which can make the cursor overshoot the
+    // edge-trigger tolerance zone in a single jump.
+    if (s_mouseSpeed < 2)  { s_mouseSpeed = 2; }
+    if (s_mouseSpeed > 30) { s_mouseSpeed = 30; }
+
+    // Re-announce to an already-connected server whenever any of the 7
+    // PKT_HELLO fields actually changed - otherwise a live BifrostCX/CLI
+    // change while connected would never reach the server until reconnect.
+    helloChanged = (s_pcEdge != oldPcEdge) || (s_mouseHz != oldMouseHz) ||
+                   (s_mouseHzDrag != oldMouseHzDrag) || (s_mouseSpeed != oldMouseSpeed) ||
+                   (s_mouseDeltaMax != oldDeltaMax) || (s_curveLinear != oldCurveLinear) ||
+                   (s_curveRatio != oldCurveRatio);
+    if (helloChanged && s_clientTcpSock >= 0)
     {
-        UBYTE helloPkt[PKT_SIZE];
-        LONG  i;
-        for (i = 0; i < PKT_SIZE; i++) helloPkt[i] = 0;
-        helloPkt[0] = PKT_HELLO;
-        helloPkt[6] = s_pcEdge;
-        send(s_clientTcpSock, (APTR)helloPkt, PKT_SIZE, 0);
+        sendHelloPacket(s_clientTcpSock);
     }
 
     if (cfg->clientEnabled != s_clientEnabled)
@@ -780,6 +829,12 @@ static void processControlMessages(BOOL *quitFlag)
                 ctlMsg->config.pcEdge    = s_pcEdge;
                 ctlMsg->config.clientEnabled   = s_clientEnabled;
                 ctlMsg->config.capslockEnabled = s_capslockEnabled;
+                ctlMsg->config.mouseHz         = s_mouseHz;
+                ctlMsg->config.mouseHzDrag     = s_mouseHzDrag;
+                ctlMsg->config.mouseSpeed      = s_mouseSpeed;
+                ctlMsg->config.mouseDeltaMax   = s_mouseDeltaMax;
+                ctlMsg->config.curveLinear     = s_curveLinear;
+                ctlMsg->config.curveRatio      = s_curveRatio;
                 ctlMsg->result = 0;
                 break;
 
@@ -979,14 +1034,8 @@ void daemon(void)
         s_lastCorrectionMs = currentTimeMs();
         s_lastHeartbeatMs  = s_lastCorrectionMs;
 
-        // Announce our PC edge configuration to the server (0 = disabled)
-        {
-            UBYTE helloPkt[PKT_SIZE];
-            for (i = 0; i < PKT_SIZE; i++) helloPkt[i] = 0;
-            helloPkt[0] = PKT_HELLO;
-            helloPkt[6] = s_pcEdge;
-            send(tcpSock, (APTR)helloPkt, PKT_SIZE, 0);
-        }
+        // Announce our PC edge + mouse-tuning configuration to the server
+        sendHelloPacket(tcpSock);
 
         // Announce current client-enabled state too, in case it was
         // set (via BMSG_CMD_SET_CONFIG) while disconnected.

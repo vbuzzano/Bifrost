@@ -27,7 +27,7 @@ import time
 from pynput import mouse, keyboard
 from pynput.keyboard import Key
 from protocol import (pack_mouse_move, pack_mouse_btn, pack_key, pack_wheel,
-                      pack_focus_enter,
+                      pack_focus_enter, unpack_hello,
                       BTN_LEFT, BTN_RIGHT, BTN_MIDDLE,
                       QUAL_LBUTTON, QUAL_RBUTTON, WHEEL_UP, WHEEL_DOWN,
                       QUAL_CTRL, QUAL_LSHIFT, QUAL_RSHIFT, QUAL_LALT, QUAL_RALT)
@@ -46,8 +46,6 @@ def _load_config():
     # Default values
     defaults = {
         'network': {'port': 7890},
-        'mouse': {'hz': 50, 'hz_drag': 15, 'speed': 1, 'delta_max': 80},
-        'curve': {'linear': 2.0, 'ratio': 0.5},
         'keys': {'toggle': 'scroll_lock', 'emergency': 'pause', 'kill_modifier': 'ctrl',
                   'right_amiga': 'windows'},
         'debug': {'enabled': True, 'log_mouse': False, 'log_keys': True}
@@ -75,14 +73,6 @@ def _load_config():
     return defaults
 
 _CONFIG = _load_config()
-
-def _validate_positive_number(value, name, default):
-    """Ensure value is a positive int/float; fall back to default (with a warning) otherwise."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
-        print(f"[WARN] Invalid {name}={value!r} in bifrost_config.json "
-              f"(must be a positive number) - using default {default}")
-        return default
-    return value
 
 # Parse key names to pynput Key objects
 _KEY_MAP = {
@@ -129,16 +119,6 @@ def _get_right_amiga_source(name):
     return 'windows'
 
 # Load configuration into module-level variables
-MOUSE_HZ      = _validate_positive_number(_CONFIG['mouse']['hz'], 'mouse.hz', 50)
-MOUSE_HZ_DRAG = _validate_positive_number(_CONFIG['mouse']['hz_drag'], 'mouse.hz_drag', 15)
-if MOUSE_HZ_DRAG > MOUSE_HZ:
-    print(f"[WARN] mouse.hz_drag ({MOUSE_HZ_DRAG}) cannot exceed mouse.hz ({MOUSE_HZ}) "
-          f"- clamping to {MOUSE_HZ}")
-    MOUSE_HZ_DRAG = MOUSE_HZ
-MOUSE_SPEED   = _CONFIG['mouse']['speed']
-DELTA_MAX     = _validate_positive_number(_CONFIG['mouse']['delta_max'], 'mouse.delta_max', 80)
-CURVE_LINEAR  = _CONFIG['curve']['linear']
-CURVE_RATIO   = _CONFIG['curve']['ratio']
 TOGGLE_KEY    = _get_key(_CONFIG['keys']['toggle'], 'keys.toggle', 'scroll_lock')
 EMERGENCY_KEY = _get_key(_CONFIG['keys']['emergency'], 'keys.emergency', 'pause')
 if EMERGENCY_KEY == TOGGLE_KEY:
@@ -156,7 +136,19 @@ DEBUG     = _CONFIG['debug']['enabled']
 LOG_MOUSE = DEBUG and bool(_CONFIG['debug'].get('log_mouse', False))
 LOG_KEYS  = DEBUG and bool(_CONFIG['debug'].get('log_keys', True))
 
-MOUSE_INTERVAL = 1.0 / MOUSE_HZ
+# Mouse-tuning values - owned by the Amiga daemon, received via PKT_HELLO.
+# None until the first PKT_HELLO arrives; capture.py must not act on Amiga
+# focus/mouse timing before that - mirrors _set_focus() already refusing
+# FOCUS_AMIGA while not connected, so these are simply never exercised
+# without a connection anyway.
+MOUSE_HZ       = None
+MOUSE_HZ_DRAG  = None
+MOUSE_SPEED    = None
+DELTA_MAX      = None
+CURVE_LINEAR   = None
+CURVE_RATIO    = None
+MOUSE_INTERVAL = None
+_mouse_timer_started = False
 
 # ---------------------------------------------------------------------------
 # Platform helpers
@@ -324,12 +316,51 @@ _capslock_lock = threading.Lock()
 _capslock_key_held = False
 
 
-def set_pc_edge(mask: int) -> None:
-    """Called by tcp_server.py when a PKT_HELLO arrives. 0 = disabled."""
-    global _pc_edge_mask
-    _pc_edge_mask = mask & 0xFF
+def apply_amiga_config(data: bytes) -> None:
+    """Called by tcp_server.py on every PKT_HELLO (first connect, or a live
+    re-send after an Amiga-side config change via SET_CONFIG). Applies all
+    7 fields (edge + 6 mouse-tuning values) and lazily starts the mouse
+    timer thread on first arrival - it never runs before the Amiga has told
+    the PC what tuning to use."""
+    global _pc_edge_mask, MOUSE_HZ, MOUSE_HZ_DRAG, MOUSE_SPEED, DELTA_MAX
+    global CURVE_LINEAR, CURVE_RATIO, MOUSE_INTERVAL, _mouse_timer_started
+
+    cfg = unpack_hello(data)
+    _pc_edge_mask  = cfg['pc_edge'] & 0xFF
+    MOUSE_HZ       = cfg['hz']
+    MOUSE_HZ_DRAG  = cfg['hz_drag']
+    MOUSE_SPEED    = cfg['speed']
+    DELTA_MAX      = cfg['delta_max']
+    CURVE_LINEAR   = cfg['curve_linear']
+    CURVE_RATIO    = cfg['curve_ratio']
+    MOUSE_INTERVAL = 1.0 / MOUSE_HZ
+
     if DEBUG:
-        print(f'[Bifrost] PC edge trigger set to 0x{_pc_edge_mask:02x}')
+        print(f'[Bifrost] Amiga config: edge=0x{_pc_edge_mask:02x} hz={MOUSE_HZ} '
+              f'hz_drag={MOUSE_HZ_DRAG} speed={MOUSE_SPEED} delta_max={DELTA_MAX} '
+              f'curve_linear={CURVE_LINEAR} curve_ratio={CURVE_RATIO}')
+
+    if not _mouse_timer_started:
+        _mouse_timer_started = True
+        threading.Thread(target=_mouse_timer_loop, daemon=True).start()
+
+
+def reset_amiga_config() -> None:
+    """Called by tcp_server.py right after accepting a new connection,
+    before the fresh PKT_HELLO arrives - avoids a stale edge config leaking
+    from a previous connection. Does NOT touch the mouse-tuning globals:
+    once the timer thread is running it reads them every iteration (see
+    _mouse_timer_loop), and nulling them here would crash that
+    already-running thread on its next time.sleep(MOUSE_INTERVAL). The
+    incoming connection's own PKT_HELLO overwrites them within milliseconds
+    regardless, and Amiga focus can't be entered without a completed
+    handshake anyway (_set_focus already refuses FOCUS_AMIGA while not
+    connected) - so there's no real window where a previous connection's
+    stale tuning values matter."""
+    global _pc_edge_mask
+    _pc_edge_mask = EDGE_NONE
+    if DEBUG:
+        print('[Bifrost] PC edge trigger reset (awaiting new PKT_HELLO)')
 
 
 _amiga_client_disabled = False  # True once a PKT_CLIENT_STATE(disabled) arrives
@@ -392,11 +423,14 @@ def _flush_mouse():
 
 
 def _mouse_timer_loop():
-    _drag_skip = MOUSE_HZ // MOUSE_HZ_DRAG   # e.g. 50//25 = skip 1 in 2
     _tick = 0
     while True:
         time.sleep(MOUSE_INTERVAL)
         _tick += 1
+        # Re-read MOUSE_HZ/MOUSE_HZ_DRAG fresh every tick (not captured once
+        # before the loop) so a live config change via apply_amiga_config()
+        # takes effect on this already-running thread without a restart.
+        _drag_skip = MOUSE_HZ // MOUSE_HZ_DRAG   # e.g. 50//25 = skip 1 in 2
         # During drag (LBUTTON held): throttle to MOUSE_HZ_DRAG
         # to give Amiga time to redraw opaque window before next event
         if (_mouse_btns & QUAL_LBUTTON) and (_tick % _drag_skip) != 0:
@@ -410,6 +444,17 @@ def _mouse_timer_loop():
 def _on_raw_delta(dx, dy):
     """Called from RawInputCapture thread. True hardware deltas - no clamping."""
     global _acc_dx, _acc_dy, _acc_qual
+    # Discard impossible/glitch deltas (startup artefact, mode switch) BEFORE
+    # applying the speed multiplier - filtering after multiplying would let
+    # a high SPEED turn a borderline-legitimate raw delta into a false
+    # rejection, or a huge raw glitch slip through once scaled down by a low
+    # SPEED. Mirrors _on_move_amiga's DELTA_MAX check (the non-Windows path) -
+    # this was the Windows path's equivalent gap, harmless at the old fixed
+    # ~1x speed but a real risk now that SPEED can push deltas much larger.
+    if abs(dx) > DELTA_MAX or abs(dy) > DELTA_MAX:
+        if LOG_MOUSE:
+            print(f'[mouse] DISCARD raw dx={dx:+d} dy={dy:+d}  (>{DELTA_MAX})')
+        return
     # Apply speed factor: raw input has no Windows mouse acceleration
     dx = int(dx * MOUSE_SPEED)
     dy = int(dy * MOUSE_SPEED)
@@ -782,7 +827,6 @@ def start(send_fn, connected_fn=None):
     print('[Bifrost] Edge trigger: waiting for Amiga PKT_HELLO | Scroll Lock = toggle')
     print('[Bifrost] Focus: PC')
 
-    threading.Thread(target=_mouse_timer_loop, daemon=True).start()
     threading.Thread(target=_watchdog_loop, daemon=True).start()
     threading.Thread(target=_capslock_poller_loop, daemon=True).start()
 

@@ -17,7 +17,7 @@
 
 // ---> BEGIN GENERATED PROGRAM_CONSTANTS
 #define PROGRAM_NAME "Bifrost"
-#define PROGRAM_VERSION "0.4.3"
+#define PROGRAM_VERSION "0.5.0-dev"
 #define PROGRAM_DATE "26.07.2026"
 #define PROGRAM_AUTHOR "Vincent Buzzano"
 #define PROGRAM_DESC_SHORT "Amiga Mouse & Keyboard Controller"
@@ -107,6 +107,12 @@ extern ULONG s_port;       // TCP port; discovery = s_port + 1
 extern UBYTE s_pcEdge;     // PC-side edge/corner that switches focus to Amiga
 extern UBYTE s_amigaEdge;  // Amiga-side mirror of s_pcEdge (switches back to PC)
 extern BOOL  s_capslockEnabled; // FALSE via CLI "NOCAPSLOCK" - default TRUE
+extern UBYTE s_mouseHz;         // default 50, CLI HZ=n
+extern UBYTE s_mouseHzDrag;     // default 15, CLI HZDRAG=n
+extern UBYTE s_mouseSpeed;      // default 10 (1.0 x10), CLI SPEED=n
+extern UBYTE s_mouseDeltaMax;   // default 80, CLI DELTAMAX=n
+extern UBYTE s_curveLinear;     // default 20 (2.0 x10), CLI CURVELINEAR=n
+extern UBYTE s_curveRatio;      // default 5 (0.5 x10), CLI CURVERATIO=n
 
 //===========================================================================
 // oppositeEdge - Mirror an edge/corner bitmask: TOP<->BOTTOM, LEFT<->RIGHT.

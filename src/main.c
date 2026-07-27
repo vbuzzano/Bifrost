@@ -37,6 +37,29 @@ ULONG s_port       = Bifrost_DEFAULT_PORT;
 UBYTE s_pcEdge      = EDGE_NONE;
 UBYTE s_amigaEdge   = EDGE_NONE;
 BOOL  s_capslockEnabled = TRUE;  // FALSE via CLI "NOCAPSLOCK"
+UBYTE s_mouseHz         = 50;
+UBYTE s_mouseHzDrag     = 15;
+UBYTE s_mouseSpeed      = 10;   // x10 fixed-point: 1.0
+UBYTE s_mouseDeltaMax   = 80;
+UBYTE s_curveLinear     = 20;   // x10 fixed-point: 2.0
+UBYTE s_curveRatio      = 5;    // x10 fixed-point: 0.5
+
+// Tracks which of the 7 live-updatable BifrostConfig fields this
+// invocation's CLI actually specified. Needed by the "already running"
+// push in _start(): pushing s_pcEdge/s_mouseHz/etc unconditionally would
+// overwrite the daemon's current live value with this process's
+// compile-time default for anything NOT retyped this time (e.g.
+// "Bifrost SPEED=2" alone must not reset a previously-set LEFT edge back
+// to none) - each flag gates whether its field gets pushed at all, or
+// left as whatever GET_CONFIG just fetched. Set by parseArguments().
+static BOOL s_gotEdge         = FALSE;
+static BOOL s_gotNoCapslock   = FALSE;
+static BOOL s_gotHz           = FALSE;
+static BOOL s_gotHzDrag       = FALSE;
+static BOOL s_gotSpeed        = FALSE;
+static BOOL s_gotDeltaMax     = FALSE;
+static BOOL s_gotCurveLinear  = FALSE;
+static BOOL s_gotCurveRatio   = FALSE;
 
 // Version string (read by AmigaOS version command)
 const char version[] = VERSION_STRING;
@@ -46,7 +69,13 @@ const char version[] = VERSION_STRING;
 //===========================================================================
 
 static BOOL parseEdgeToken(UBYTE *p, UBYTE *outMask, LONG *outLen);
+static void classifyStopStatus(UBYTE *args, BOOL *outIsStop, BOOL *outIsStatus);
 static BOOL matchKeyword(UBYTE *p, const char *kw, LONG *outLen);
+static BOOL matchKeyValue(UBYTE *p, const char *key, ULONG *outValue, LONG *outLen);
+static BOOL matchDecimalKeyValue(UBYTE *p, const char *key, UBYTE *outValue, LONG *outLen);
+static BOOL keywordNameMatches(UBYTE *p, const char *key);
+static void parseArguments(UBYTE *args);
+static void printConfigSummary(const struct BifrostConfig *cfg, const char *label);
 static ULONG sendBifrostMessage(struct MsgPort *port, UBYTE cmd, ULONG value);
 static ULONG sendConfigMessage(struct MsgPort *port, UBYTE cmd, struct BifrostConfig *cfg);
 
@@ -110,8 +139,28 @@ static BOOL parseEdgeToken(UBYTE *p, UBYTE *outMask, LONG *outLen)
 }
 
 //===========================================================================
+// classifyStopStatus - Pure classification only (mirrors XMouseD's
+// parseArguments(): recognize the mode, don't act on it). Whether it's
+// STOP/STATUS and what to actually DO about it (Forbid/FindPort/
+// sendBifrostMessage/printing) stays in _start() - same split XMouseD
+// keeps between its parseArguments() and the if-chain that follows it.
+// Case-insensitive via the (c|32) bit trick, must be the whole (only)
+// token - "STOPX" or "STATUSFOO" don't match.
+//===========================================================================
+
+static void classifyStopStatus(UBYTE *args, BOOL *outIsStop, BOOL *outIsStatus)
+{
+    UBYTE *p = args;
+    *outIsStop   = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='o' && (p[3]|32)=='p' &&
+                   (p[4]=='\0' || p[4]==' ' || p[4]=='\t' || p[4]=='\n');
+    *outIsStatus = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='a' && (p[3]|32)=='t' &&
+                   (p[4]|32)=='u' && (p[5]|32)=='s' &&
+                   (p[6]=='\0' || p[6]==' ' || p[6]=='\t' || p[6]=='\n');
+}
+
+//===========================================================================
 // matchKeyword - Case-insensitive whole-token match against a fixed
-// keyword, same (c|32) bit-trick style as parseEdgeToken()/STOP/STATUS
+// keyword, same (c|32) bit-trick style as parseEdgeToken()/classifyStopStatus()
 // above. Used for the standalone "NOCAPSLOCK" CLI token.
 //===========================================================================
 
@@ -134,6 +183,353 @@ static BOOL matchKeyword(UBYTE *p, const char *kw, LONG *outLen)
         }
     }
     return FALSE;
+}
+
+//===========================================================================
+// matchKeyValue - Case-insensitive match of "KEY=digits" at this position.
+// Returns FALSE (token untouched, *outValue/*outLen unset) if `key` doesn't
+// match, if it isn't followed by '=', or if there are no digits after '='.
+// Used for the 6 mouse-tuning CLI tokens (HZ=, SPEED=, etc).
+//===========================================================================
+
+static BOOL matchKeyValue(UBYTE *p, const char *key, ULONG *outValue, LONG *outLen)
+{
+    LONG len = 0;
+    while (key[len])
+    {
+        UBYTE pc = p[len];
+        UBYTE kc = (UBYTE)key[len];
+        if ((pc | 32) != (kc | 32)) { return FALSE; }
+        len++;
+    }
+    // Accept "KEY=value" or "KEY value" (one or more spaces/tabs) - if
+    // neither separator follows, this isn't a match at all (leaves *args
+    // untouched so the caller's unknown-token fallback handles it).
+    if (p[len] == '=')
+    {
+        len++;
+    }
+    else if (p[len] == ' ' || p[len] == '\t')
+    {
+        while (p[len] == ' ' || p[len] == '\t') { len++; }
+    }
+    else
+    {
+        return FALSE;
+    }
+    {
+        ULONG value  = 0;
+        LONG  digits = 0;
+        while (p[len] >= '0' && p[len] <= '9' && digits < 5)
+        {
+            value = value * 10 + (ULONG)(p[len] - '0');
+            len++;
+            digits++;
+        }
+        if (digits == 0)
+        {
+            return FALSE; // "KEY=" with no digits - not a match
+        }
+        {
+            UBYTE term = p[len];
+            if (term == '\0' || term == ' ' || term == '\t' || term == '\n')
+            {
+                *outValue = value;
+                *outLen   = len;
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+//===========================================================================
+// matchDecimalKeyValue - Like matchKeyValue, but for "KEY=digits[.digit]"
+// where the human decimal number is converted directly to the x10
+// fixed-point UBYTE used on the wire (e.g. "SPEED=1.5" -> 15, "SPEED=3" ->
+// 30, "CURVERATIO=0.5" -> 5). No float type or atof()/strtod() involved -
+// this is plain digit parsing, same style as matchKeyValue above, just
+// with an optional single fractional digit. Only the first digit after
+// '.' is used (matches the wire's 0.1 precision) - any further fractional
+// digits are consumed but ignored, not rounded. Used for SPEED/
+// CURVELINEAR/CURVERATIO; HZ/HZDRAG/DELTAMAX stay integer-only via
+// matchKeyValue since they have no fractional meaning on the wire.
+//===========================================================================
+
+static BOOL matchDecimalKeyValue(UBYTE *p, const char *key, UBYTE *outValue, LONG *outLen)
+{
+    LONG len = 0;
+    while (key[len])
+    {
+        UBYTE pc = p[len];
+        UBYTE kc = (UBYTE)key[len];
+        if ((pc | 32) != (kc | 32)) { return FALSE; }
+        len++;
+    }
+    // Accept "KEY=value" or "KEY value" (one or more spaces/tabs).
+    if (p[len] == '=')
+    {
+        len++;
+    }
+    else if (p[len] == ' ' || p[len] == '\t')
+    {
+        while (p[len] == ' ' || p[len] == '\t') { len++; }
+    }
+    else
+    {
+        return FALSE;
+    }
+    {
+        ULONG intPart = 0;
+        ULONG tenths  = 0;
+        LONG  digits  = 0;
+        while (p[len] >= '0' && p[len] <= '9' && digits < 3)
+        {
+            intPart = intPart * 10 + (ULONG)(p[len] - '0');
+            len++;
+            digits++;
+        }
+        if (digits == 0 && p[len] != '.')
+        {
+            return FALSE; // "KEY=" with nothing usable - not a match
+        }
+        if (p[len] == '.')
+        {
+            len++;
+            if (p[len] >= '0' && p[len] <= '9')
+            {
+                tenths = (ULONG)(p[len] - '0');
+                len++;
+                // Only 1 decimal is meaningful on the wire - consume (don't
+                // round) any further fractional digits so "1.53" behaves
+                // like "1.5", not a parse failure.
+                while (p[len] >= '0' && p[len] <= '9') { len++; }
+            }
+        }
+        {
+            UBYTE  term  = p[len];
+            ULONG  value = intPart * 10 + tenths;
+            if ((term == '\0' || term == ' ' || term == '\t' || term == '\n') &&
+                value <= 255)
+            {
+                *outValue = (UBYTE)value;
+                *outLen   = len;
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+//===========================================================================
+// keywordNameMatches - TRUE if `key` matches at this position AND is
+// immediately followed by a real token boundary ('=', space/tab, or
+// end-of-token) - i.e. the keyword *name* itself is recognized, regardless
+// of whether a valid value follows it. Used only to tell "SPEED" (known
+// keyword, value missing/invalid) apart from a genuinely unknown token, so
+// parseArguments()'s fallback can report a specific "missing value" error
+// instead of a generic "unknown argument" for typos like "SPEED" alone,
+// "SPEED=", or "SPEED=abc". Deliberately separate from matchKeyValue/
+// matchDecimalKeyValue (which already returned FALSE for all of these
+// cases without distinguishing why).
+//===========================================================================
+
+static BOOL keywordNameMatches(UBYTE *p, const char *key)
+{
+    LONG len = 0;
+    while (key[len])
+    {
+        UBYTE pc = p[len];
+        UBYTE kc = (UBYTE)key[len];
+        if ((pc | 32) != (kc | 32)) { return FALSE; }
+        len++;
+    }
+    {
+        UBYTE term = p[len];
+        return term == '=' || term == ' ' || term == '\t' ||
+               term == '\0' || term == '\n';
+    }
+}
+
+//===========================================================================
+// printConfigSummary - One consistent config line, shared by every place
+// that needs to report the current mouse-tuning state (fresh-launch
+// startup and the "already running" live-update push both call this with
+// their own effective BifrostConfig) - previously each had its own
+// hand-written PrintF with a different field subset, which had already
+// drifted out of sync (the live-update line was missing 4 of the 6
+// mouse-tuning fields the startup line showed).
+//===========================================================================
+
+static void printConfigSummary(const struct BifrostConfig *cfg, const char *label)
+{
+    PrintF(PROGRAM_NAME ": %s - edge=0x%02lx capslock=%s hz=%ld hzdrag=%ld "
+           "speed=%ld.%ld deltamax=%ld curvelinear=%ld.%ld curveratio=%ld.%ld",
+           label,
+           (LONG)cfg->pcEdge, cfg->capslockEnabled ? "on" : "off",
+           (LONG)cfg->mouseHz, (LONG)cfg->mouseHzDrag,
+           (LONG)(cfg->mouseSpeed / 10), (LONG)(cfg->mouseSpeed % 10),
+           (LONG)cfg->mouseDeltaMax,
+           (LONG)(cfg->curveLinear / 10), (LONG)(cfg->curveLinear % 10),
+           (LONG)(cfg->curveRatio / 10), (LONG)(cfg->curveRatio % 10));
+}
+
+//===========================================================================
+// parseArguments - Parse whitespace-separated CLI tokens (numeric port, an
+// edge keyword, NOCAPSLOCK, and/or KEY=VALUE / KEY VALUE mouse-tuning
+// tokens), any order and any count. Sets s_port/s_pcEdge/s_capslockEnabled/
+// s_mouseHz/etc directly and the matching s_got* flag for each one
+// actually specified (see their declaration comment), then validates
+// HZDRAG<=HZ once all tokens are in.
+//
+// Mirrors XMouseD's parseArguments() naming/shape (see saga-xmouse/src/
+// xmoused.c), adapted for Bifrost's much larger argument set - XMouseD's
+// version returns a single BYTE mode, which isn't enough output here,
+// hence the s_got* globals instead of a return value.
+//===========================================================================
+
+static void parseArguments(UBYTE *args)
+{
+    LONG i;
+    LONG portNum;
+
+    while (TRUE)
+    {
+        while (*args == ' ' || *args == '\t')
+        {
+            args++;
+        }
+        if (*args == 0 || *args == '\n')
+        {
+            break;
+        }
+
+        if (*args >= '0' && *args <= '9')
+        {
+            portNum = 0;
+            i = 0;
+            while (*args >= '0' && *args <= '9' && i < 5)
+            {
+                portNum = portNum * 10 + (*args - '0');
+                args++;
+                i++;
+            }
+            if (portNum > 0 && portNum < 65536)
+            {
+                s_port = (ULONG)portNum;
+            }
+        }
+        else
+        {
+            UBYTE edgeMask;
+            LONG  edgeLen;
+            LONG  kwLen;
+            ULONG kvValue;
+            LONG  kvLen;
+            UBYTE kvDecValue;
+            LONG  kvDecLen;
+
+            if (parseEdgeToken(args, &edgeMask, &edgeLen))
+            {
+                s_pcEdge  = edgeMask;
+                s_gotEdge = TRUE;
+                args += edgeLen;
+            }
+            else if (matchKeyword(args, "NOCAPSLOCK", &kwLen))
+            {
+                s_capslockEnabled = FALSE;
+                s_gotNoCapslock   = TRUE;
+                args += kwLen;
+            }
+            else if (matchKeyValue(args, "HZ", &kvValue, &kvLen))
+            {
+                if (kvValue > 0 && kvValue < 256) { s_mouseHz = (UBYTE)kvValue; s_gotHz = TRUE; }
+                args += kvLen;
+            }
+            else if (matchKeyValue(args, "HZDRAG", &kvValue, &kvLen))
+            {
+                if (kvValue > 0 && kvValue < 256) { s_mouseHzDrag = (UBYTE)kvValue; s_gotHzDrag = TRUE; }
+                args += kvLen;
+            }
+            else if (matchDecimalKeyValue(args, "SPEED", &kvDecValue, &kvDecLen))
+            {
+                // Clamped to 0.2-3.0: a very high speed sends packets
+                // that are already clamped to the max per-event delta
+                // almost every time, which can make the cursor overshoot
+                // the edge-trigger tolerance zone in a single jump - seen
+                // live as a broken edge-switch after using SPEED=10.
+                if (kvDecValue < 2)
+                {
+                    PrintF(PROGRAM_NAME ": WARNING - SPEED (%ld.%ld) below minimum 0.2 - clamping",
+                           (LONG)(kvDecValue / 10), (LONG)(kvDecValue % 10));
+                    kvDecValue = 2;
+                }
+                else if (kvDecValue > 30)
+                {
+                    PrintF(PROGRAM_NAME ": WARNING - SPEED (%ld.%ld) above maximum 3.0 - clamping",
+                           (LONG)(kvDecValue / 10), (LONG)(kvDecValue % 10));
+                    kvDecValue = 30;
+                }
+                s_mouseSpeed = kvDecValue;
+                s_gotSpeed   = TRUE;
+                args += kvDecLen;
+            }
+            else if (matchKeyValue(args, "DELTAMAX", &kvValue, &kvLen))
+            {
+                if (kvValue > 0 && kvValue < 256) { s_mouseDeltaMax = (UBYTE)kvValue; s_gotDeltaMax = TRUE; }
+                args += kvLen;
+            }
+            else if (matchDecimalKeyValue(args, "CURVELINEAR", &kvDecValue, &kvDecLen))
+            {
+                s_curveLinear    = kvDecValue;
+                s_gotCurveLinear = TRUE;
+                args += kvDecLen;
+            }
+            else if (matchDecimalKeyValue(args, "CURVERATIO", &kvDecValue, &kvDecLen))
+            {
+                s_curveRatio    = kvDecValue;
+                s_gotCurveRatio = TRUE;
+                args += kvDecLen;
+            }
+            else if (keywordNameMatches(args, "HZ") || keywordNameMatches(args, "HZDRAG") ||
+                     keywordNameMatches(args, "SPEED") || keywordNameMatches(args, "DELTAMAX") ||
+                     keywordNameMatches(args, "CURVELINEAR") || keywordNameMatches(args, "CURVERATIO"))
+            {
+                // The keyword itself is recognized but matchKeyValue/
+                // matchDecimalKeyValue above already failed for it - the
+                // value part is missing or invalid (e.g. "SPEED" alone,
+                // "SPEED=", "SPEED=abc"). More specific than the generic
+                // unknown-argument warning below.
+                PrintF(PROGRAM_NAME ": WARNING - missing/invalid value for %s "
+                       "(expected KEY=n or KEY n)", args);
+                while (*args && *args != ' ' && *args != '\t' && *args != '\n')
+                {
+                    args++;
+                }
+            }
+            else
+            {
+                // Unknown token - warn (style borrowed from XMouseD's
+                // "unknown argument: %s") then skip just this one token
+                // and keep parsing whatever follows.
+                PrintF(PROGRAM_NAME ": WARNING - unknown argument: %s", args);
+                while (*args && *args != ' ' && *args != '\t' && *args != '\n')
+                {
+                    args++;
+                }
+            }
+        }
+    }
+
+    // HZDRAG must not exceed HZ - clamp after all tokens are parsed so the
+    // check is independent of argument order (HZDRAG=30 HZ=20 must clamp
+    // the same as HZ=20 HZDRAG=30).
+    if (s_mouseHzDrag > s_mouseHz)
+    {
+        PrintF(PROGRAM_NAME ": WARNING - HZDRAG (%ld) cannot exceed HZ (%ld) - clamping",
+               (LONG)s_mouseHzDrag, (LONG)s_mouseHz);
+        s_mouseHzDrag = s_mouseHz;
+    }
 }
 
 //===========================================================================
@@ -342,8 +738,6 @@ LONG _start(void)
     struct CommandLineInterface *cli;
     struct MsgPort               *existingPort;
     UBYTE                        *args;
-    LONG                          i;
-    LONG                          portNum;
 
     SysBase = *(struct ExecBase **)4L;
     DOSBase = (struct DosLibrary *)OpenLibrary("dos.library", 36);
@@ -364,11 +758,18 @@ LONG _start(void)
     // Show usage on '?'
     if (*args == '?')
     {
-        Print("Usage: " PROGRAM_NAME " [port] [edge] [NOCAPSLOCK] | STATUS | STOP");
+        Print("Usage: " PROGRAM_NAME " [port] [edge] [NOCAPSLOCK] [KEY=VALUE...] | STATUS | STOP");
         PrintF("  port       - TCP port (default: %ld, discovery: port+1)", (LONG)Bifrost_DEFAULT_PORT);
         Print("  edge       - TOP/BOTTOM/LEFT/RIGHT/TOPLEFT/TOPRIGHT/BOTTOMLEFT/BOTTOMRIGHT");
         Print("               PC edge that switches focus to Amiga (default: none = disabled)");
         Print("  NOCAPSLOCK - disable PC Capslock -> Amiga synchronization (default: enabled)");
+        Print("  HZ=n          - mouse poll rate, Hz (default: 50)");
+        Print("  HZDRAG=n      - mouse poll rate while dragging, Hz (default: 15, clamped <= HZ)");
+        Print("  SPEED=n       - mouse speed multiplier, decimal, 0.2-3.0 (default: 1.0, e.g. SPEED=2 or SPEED=1.5)");
+        Print("  DELTAMAX=n    - startup glitch filter, pixels (default: 80)");
+        Print("  CURVELINEAR=n - acceleration curve linear threshold, decimal (default: 2.0)");
+        Print("  CURVERATIO=n  - acceleration curve compression ratio, decimal (default: 0.5)");
+        Print("                  (any KEY may be written as KEY=value or KEY value)");
         Print("  STATUS - query the running daemon's connection status");
         Print("  STOP   - disconnect and quit the running daemon");
         Print("  Server is discovered automatically via UDP broadcast.");
@@ -379,15 +780,12 @@ LONG _start(void)
     }
 
     // STOP / STATUS: talk to an already-running daemon instead of parsing
-    // port/edge args or launching a new one. Case-insensitive, must be the
-    // whole (only) token - "STOPX" or "STATUSFOO" don't match.
+    // port/edge args or launching a new one. classifyStopStatus() only
+    // recognizes the mode (mirrors XMouseD's parseArguments()) - acting on
+    // it (Forbid/FindPort/sendBifrostMessage/printing) stays here.
     {
-        UBYTE *p = args;
-        BOOL isStop   = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='o' && (p[3]|32)=='p' &&
-                        (p[4]=='\0' || p[4]==' ' || p[4]=='\t' || p[4]=='\n');
-        BOOL isStatus = (p[0]|32)=='s' && (p[1]|32)=='t' && (p[2]|32)=='a' && (p[3]|32)=='t' &&
-                        (p[4]|32)=='u' && (p[5]|32)=='s' &&
-                        (p[6]=='\0' || p[6]==' ' || p[6]=='\t' || p[6]=='\n');
+        BOOL isStop, isStatus;
+        classifyStopStatus(args, &isStop, &isStatus);
 
         if (isStop || isStatus)
         {
@@ -436,11 +834,20 @@ LONG _start(void)
         }
     }
 
+    // Parse port/edge/NOCAPSLOCK/KEY=VALUE tokens - see parseArguments()
+    // for the full token grammar and the s_got* flags it sets.
+    parseArguments(args);
+
     // A second invocation while Bifrost is already running doesn't launch
     // a duplicate (they'd both bind the same UDP/TCP ports and fight over
-    // input.device) - instead it pushes this invocation's edge to the
-    // running daemon live. GET_CONFIG first (rather than blindly
-    // SET_CONFIG-ing) so the daemon's current clientEnabled is preserved.
+    // input.device) - instead it pushes this invocation's config to the
+    // running daemon live. Must run AFTER the token-parsing loop above -
+    // s_pcEdge/s_mouseHz/etc. only reflect this invocation's actual CLI
+    // args once that loop has run; sending them any earlier would push
+    // stale compile-time defaults and silently wipe out whatever the
+    // daemon was already running with. GET_CONFIG first (rather than
+    // blindly SET_CONFIG-ing) so the daemon's current clientEnabled is
+    // preserved (it has no CLI representation).
     Forbid();
     existingPort = FindPort(Bifrost_PORT_NAME);
     Permit();
@@ -463,71 +870,43 @@ LONG _start(void)
             CloseLibrary((struct Library *)DOSBase);
             return RETURN_WARN;
         }
+        else
+        {
+            PrintF(PROGRAM_NAME ": already running on port %ld", (LONG)s_port);
+        }
 
-        cfg.pcEdge          = s_pcEdge;
-        cfg.capslockEnabled = s_capslockEnabled;
+        // Only overwrite fields this invocation's CLI actually specified -
+        // cfg already holds the daemon's current live values from
+        // GET_CONFIG above, so anything not retyped this time stays
+        // exactly as it was (e.g. "Bifrost SPEED=2" alone must not reset a
+        // previously-set LEFT edge back to none).
+        if (s_gotEdge)        { cfg.pcEdge          = s_pcEdge; }
+        if (s_gotNoCapslock)  { cfg.capslockEnabled = s_capslockEnabled; }
+        if (s_gotHz)          { cfg.mouseHz         = s_mouseHz; }
+        if (s_gotHzDrag)      { cfg.mouseHzDrag     = s_mouseHzDrag; }
+        if (s_gotSpeed)       { cfg.mouseSpeed      = s_mouseSpeed; }
+        if (s_gotDeltaMax)    { cfg.mouseDeltaMax   = s_mouseDeltaMax; }
+        if (s_gotCurveLinear) { cfg.curveLinear     = s_curveLinear; }
+        if (s_gotCurveRatio)  { cfg.curveRatio      = s_curveRatio; }
+
+        // Re-validate HZDRAG<=HZ on the merged result, not the pre-merge
+        // s_mouseHz/s_mouseHzDrag locals above: those default to this
+        // process's compile-time defaults for anything not retyped this
+        // invocation, which is meaningless to compare against here. E.g.
+        // "Bifrost HZDRAG=95" alone, against a daemon already running
+        // HZ=100, must clamp against the live 100 - not this process's
+        // default HZ=50, which would wrongly clamp HZDRAG down to 50.
+        if (cfg.mouseHzDrag > cfg.mouseHz)
+        {
+            PrintF(PROGRAM_NAME ": WARNING - HZDRAG (%ld) cannot exceed HZ (%ld) - clamping",
+                   (LONG)cfg.mouseHzDrag, (LONG)cfg.mouseHz);
+            cfg.mouseHzDrag = cfg.mouseHz;
+        }
+
         sendConfigMessage(existingPort, BMSG_CMD_SET_CONFIG, &cfg);
-        PrintF(PROGRAM_NAME ": config updated (edge=0x%02lx, capslock=%s)",
-               (LONG)s_pcEdge, s_capslockEnabled ? "on" : "off");
+        printConfigSummary(&cfg, "config updated");
         CloseLibrary((struct Library *)DOSBase);
         return RETURN_OK;
-    }
-
-    // Parse up to 3 whitespace-separated tokens, any order: a numeric
-    // port, an edge keyword, and/or NOCAPSLOCK.
-    {
-        LONG tok;
-        for (tok = 0; tok < 3; tok++)
-        {
-            while (*args == ' ' || *args == '\t')
-            {
-                args++;
-            }
-            if (*args == 0 || *args == '\n')
-            {
-                break;
-            }
-
-            if (*args >= '0' && *args <= '9')
-            {
-                portNum = 0;
-                i = 0;
-                while (*args >= '0' && *args <= '9' && i < 5)
-                {
-                    portNum = portNum * 10 + (*args - '0');
-                    args++;
-                    i++;
-                }
-                if (portNum > 0 && portNum < 65536)
-                {
-                    s_port = (ULONG)portNum;
-                }
-            }
-            else
-            {
-                UBYTE edgeMask;
-                LONG  edgeLen;
-                LONG  kwLen;
-                if (parseEdgeToken(args, &edgeMask, &edgeLen))
-                {
-                    s_pcEdge = edgeMask;
-                    args += edgeLen;
-                }
-                else if (matchKeyword(args, "NOCAPSLOCK", &kwLen))
-                {
-                    s_capslockEnabled = FALSE;
-                    args += kwLen;
-                }
-                else
-                {
-                    // Unknown token - skip it and keep parsing
-                    while (*args && *args != ' ' && *args != '\t' && *args != '\n')
-                    {
-                        args++;
-                    }
-                }
-            }
-        }
     }
 
     s_amigaEdge = oppositeEdge(s_pcEdge);
@@ -554,14 +933,26 @@ LONG _start(void)
 
     PrintF(PROGRAM_NAME ": daemon started (listening on UDP port %ld)",
            (LONG)(s_port + 1));
-    if (s_pcEdge != EDGE_NONE)
     {
-        PrintF(PROGRAM_NAME ": edge switching enabled (PC edge=0x%02lx, Amiga edge=0x%02lx)",
-               (LONG)s_pcEdge, (LONG)s_amigaEdge);
-    }
-    if (!s_capslockEnabled)
-    {
-        Print(PROGRAM_NAME ": Capslock synchronization disabled (NOCAPSLOCK)");
+        // Same printConfigSummary() the "already running" live-update push
+        // uses (see above) - one consistent, always-shown line, replacing
+        // what used to be 3 separately-worded, separately-conditional
+        // PrintF calls that had already drifted out of sync with the
+        // live-update message. clientEnabled has no CLI representation
+        // (only ever set live via BifrostCX) - TRUE here just matches
+        // daemon.c's own compile-time default for a fresh daemon.
+        struct BifrostConfig startCfg;
+        startCfg.port            = s_port;
+        startCfg.pcEdge           = s_pcEdge;
+        startCfg.clientEnabled    = TRUE;
+        startCfg.capslockEnabled  = s_capslockEnabled;
+        startCfg.mouseHz          = s_mouseHz;
+        startCfg.mouseHzDrag      = s_mouseHzDrag;
+        startCfg.mouseSpeed       = s_mouseSpeed;
+        startCfg.mouseDeltaMax    = s_mouseDeltaMax;
+        startCfg.curveLinear      = s_curveLinear;
+        startCfg.curveRatio       = s_curveRatio;
+        printConfigSummary(&startCfg, "config");
     }
 
     CloseLibrary((struct Library *)DOSBase);

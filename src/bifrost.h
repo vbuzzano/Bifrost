@@ -51,6 +51,13 @@ struct BifrostConfig
     BOOL  clientEnabled;   // live-updatable
     BOOL  capslockEnabled; // live-updatable; also settable via CLI NOCAPSLOCK
                            // (see main.c) - default TRUE
+    UBYTE mouseHz;         // live-updatable; also settable via CLI HZ=n - default 50
+    UBYTE mouseHzDrag;     // live-updatable; also settable via CLI HZDRAG=n - default 15, clamped <= mouseHz
+    UBYTE mouseSpeed;      // live-updatable; x10 fixed-point; CLI SPEED=n - default 10 (1.0)
+                           // clamped to 2-30 (0.2-3.0) by setConfig() - see daemon.c
+    UBYTE mouseDeltaMax;   // live-updatable; also settable via CLI DELTAMAX=n - default 80
+    UBYTE curveLinear;     // live-updatable; x10 fixed-point; CLI CURVELINEAR=n - default 20 (2.0)
+    UBYTE curveRatio;      // live-updatable; x10 fixed-point; CLI CURVERATIO=n - default 5 (0.5)
 };
 
 struct BifrostMsg

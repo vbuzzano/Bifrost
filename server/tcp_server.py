@@ -108,7 +108,7 @@ class BifrostServer:
             self._last_rx = time.monotonic()
             ptype = data[0]
             if ptype == PKT_HELLO:
-                capture.set_pc_edge(data[6])
+                capture.apply_amiga_config(data)
             elif ptype == PKT_EDGE_TRIGGER:
                 capture._set_focus(capture.FOCUS_PC, entry_percent=data[6])
             elif ptype == PKT_CLIENT_STATE:
@@ -164,7 +164,7 @@ class BifrostServer:
                 conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 # Reset until the fresh PKT_HELLO arrives - avoids a stale
                 # edge config leaking from a previous connection.
-                capture.set_pc_edge(0)
+                capture.reset_amiga_config()
                 capture._reset_amiga_client_state()
                 with self._lock:
                     if self._conn:

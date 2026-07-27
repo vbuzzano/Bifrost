@@ -111,3 +111,20 @@ def unpack_heartbeat(data: bytes) -> tuple:
     """Decode a PKT_HEARTBEAT payload. Returns (x, y) - current Amiga cursor position."""
     _, _, x, y, _, _ = struct.unpack(_FMT, data)
     return x, y
+
+def unpack_hello(data: bytes) -> dict:
+    """Decode a PKT_HELLO payload: pcEdge (code byte, its existing position)
+    plus 6 mouse-tuning values packed one-per-byte into the previously
+    unused flags/x/y/state bytes. Read directly by index - NOT via
+    struct.unpack's int16 x/y decoding, since this packet repurposes those
+    bytes as 4 independent UBYTEs instead of two signed 16-bit deltas.
+    speed/curve_linear/curve_ratio are wire-encoded as actual_value * 10."""
+    return {
+        'pc_edge':      data[6],
+        'hz':           data[1],
+        'hz_drag':      data[2],
+        'delta_max':    data[3],
+        'speed':        data[4] / 10.0,
+        'curve_linear': data[5] / 10.0,
+        'curve_ratio':  data[7] / 10.0,
+    }
