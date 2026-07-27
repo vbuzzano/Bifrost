@@ -32,9 +32,9 @@
 
 // Discovery messages
 #define DISC_MSG            "Bifrost_DISCOVER"
-#define DISC_MSG_LEN        15
+#define DISC_MSG_LEN        16
 #define DISC_REPLY          "Bifrost_HERE"
-#define DISC_REPLY_LEN      11
+#define DISC_REPLY_LEN      12
 
 // Packet types (byte 0)
 #define PKT_MOUSE_MOVE   0x01    // delta mouse movement
