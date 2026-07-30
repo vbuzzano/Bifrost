@@ -1,11 +1,11 @@
-Short:         ~ Amiga Mouse & Keyboard Controller [PROGRAM_DESC_SHORT]~
+Short:         ~ Amiga Mouse & Keyboard Remote Controller [PROGRAM_DESC_SHORT]~
 Author:        reddoc007@gmail.com (Vincent Buzzano)
 Uploader:      reddoc007@gmail.com (Vincent Buzzano)
 Type:          driver/input
-Version:       ~ 0.5.0 [PROGRAM_VERSION]~
+Version:       ~ 0.5.1 [PROGRAM_VERSION]~
 Architecture:  m68k-amigaos
 
-                                 ~ Bifrost [PROGRAM_NAME]~ v~ 0.5.0 [PROGRAM_VERSION]~
+                                 ~ Bifrost [PROGRAM_NAME]~ v~ 0.5.1 [PROGRAM_VERSION]~
 
 -----------------------------------------------------------------------------
 

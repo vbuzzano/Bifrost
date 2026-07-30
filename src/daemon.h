@@ -17,10 +17,10 @@
 
 // ---> BEGIN GENERATED PROGRAM_CONSTANTS
 #define PROGRAM_NAME "Bifrost"
-#define PROGRAM_VERSION "0.5.0"
-#define PROGRAM_DATE "27.07.2026"
+#define PROGRAM_VERSION "0.5.1"
+#define PROGRAM_DATE "31.07.2026"
 #define PROGRAM_AUTHOR "Vincent Buzzano"
-#define PROGRAM_DESC_SHORT "Amiga Mouse & Keyboard Controller"
+#define PROGRAM_DESC_SHORT "Amiga Mouse & Keyboard Remote Controller"
 // <--- END GENERATED PROGRAM CONSTANTS
 
 #define VERSION_STRING "$VER: " PROGRAM_NAME " " PROGRAM_VERSION \
