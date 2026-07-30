@@ -16,7 +16,7 @@ Bifrost enables seamless mouse and keyboard forwarding from a PC to a AmigaOs 3.
 ✅ **Input Toggle** - Scroll Lock or screen edge trigger to switch PC ↔ Amiga control  
 ✅ **Edge Detection** - Screen edge/corner switching for focus control  
 ✅ **Auto-Discovery** - UDP broadcast — no IP configuration needed  
-✅ **JSON Configuration** - No code edits — configure via `bifrost_config.json`  
+✅ **Configurable** - Mouse tuning via Amiga CLI args, everything else via `bifrost_config.json` — no code edits  
 ✅ **Systray Status Icon** - Green icon when Amiga connected, grey when disconnected  
 ✅ **Python Server** - Cross-platform PC side daemon (Windows/Linux/macOS)  
 
@@ -96,38 +96,36 @@ Bifrost [port] [edge]
 Bifrost                      # Auto-discover, default port (7890)
 Bifrost 9999                 # Custom TCP port (PC must also use 9999)
 Bifrost 9999 TOPRIGHT        # + Edge trigger (top-right corner)
+Bifrost NOCAPSLOCK            # Disable PC Capslock -> Amiga sync (default: enabled)
+Bifrost HZ=75 SPEED=1.5       # Mouse tuning args (see below), any order
 Bifrost STATUS                # Query the running daemon's connection status
 Bifrost STOP                  # Disconnect and quit the running daemon
+Bifrost ?                     # Print full usage/help
 ```
 
 **Edge Options:** `TOP`, `BOTTOM`, `LEFT`, `RIGHT`, `TOPLEFT`, `TOPRIGHT`, `BOTTOMLEFT`, `BOTTOMRIGHT`
 
-**STATUS / STOP:** Talk to the already-running daemon over a public message port (`Bifrost_Port`) instead of launching a new one - useful for scripts. Running `Bifrost` again while an instance is already active is refused (use `STOP` first, or `STATUS` to check).
+**Mouse Tuning (`KEY=VALUE`):** `HZ=n` poll rate in Hz (default 50) · `HZDRAG=n` poll rate while dragging (default 15, clamped ≤ `HZ`) · `SPEED=n` speed multiplier, 0.2-3.0 (default 1.0) · `DELTAMAX=n` startup glitch filter in pixels (default 80) · `CURVELINEAR=n` acceleration curve linear threshold (default 2.0) · `CURVERATIO=n` acceleration curve compression ratio (default 0.5). Running `Bifrost` again while an instance is already running live-pushes any edge/tuning args to it instead of launching a duplicate.
+
+**STATUS / STOP:** Talk to the already-running daemon over a public message port (`Bifrost_Port`) instead of launching a new one - useful for scripts. Running `Bifrost` again while an instance is already active applies any new edge/tuning args live (use `STOP` first to actually stop it, or `STATUS` to check).
 
 **⚠️ Port Limitation:** If you change the port on PC, you must also specify it on Amiga CLI. The UDP discovery protocol doesn't currently transmit the TCP port — it's assumed to be `UDP port - 1`. This will be fixed in Phase 2 (auto-negotiation).
 
-### Configuration (PC)
+### Configuration
 
-Edit `server/bifrost_config.json`:
+**Mouse tuning is Amiga-side** (see `HZ=`/`SPEED=`/etc. above) - it's sent to the PC automatically over the wire, no PC-side setup needed.
+
+**PC-side config** is everything else: edit `server/bifrost_config.json`:
 
 ```json
 {
   "network": {
     "port": 7890
   },
-  "mouse": {
-    "hz": 50,
-    "hz_drag": 15,
-    "speed": 1,
-    "delta_max": 80
-  },
-  "curve": {
-    "linear": 2.0,
-    "ratio": 0.5
-  },
   "keys": {
     "toggle": "scroll_lock",
-    "emergency": "pause"
+    "emergency": "pause",
+    "kill_modifier": "ctrl"
   },
   "debug": {
     "enabled": true
