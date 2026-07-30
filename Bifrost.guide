@@ -68,8 +68,11 @@ begins capturing the PC's mouse and keyboard in the background.
   Bifrost <edge>           - Connect with an edge/corner switch trigger
   Bifrost <port>           - Connect on a non-default TCP port
   Bifrost <edge> <port>    - Both, in any order
+  Bifrost NOCAPSLOCK       - Disable PC Capslock -> Amiga sync (default: enabled)
+  Bifrost HZ=75 SPEED=1.5  - Mouse tuning args, any order (see below)
   Bifrost STATUS           - Query the running daemon's connection status
   Bifrost STOP             - Disconnect and quit the running daemon
+  Bifrost ?                - Print full usage/help
 
 Tokens are recognised automatically: a number is always the port, a
 recognised keyword is always the edge - so @{b}Bifrost LEFT 7890@{ub} and
@@ -79,12 +82,28 @@ keywords.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 
+@{b}Mouse Tuning (KEY=VALUE)@{ub}
+
+  HZ=n          - mouse poll rate, Hz (default: 50)
+  HZDRAG=n      - mouse poll rate while dragging, Hz (default: 15, clamped <= HZ)
+  SPEED=n       - mouse speed multiplier, 0.2-3.0 (default: 1.0, e.g. SPEED=1.5)
+  DELTAMAX=n    - startup glitch filter, pixels (default: 80)
+  CURVELINEAR=n - acceleration curve linear threshold (default: 2.0)
+  CURVERATIO=n  - acceleration curve compression ratio (default: 0.5)
+
+These are Amiga-side arguments; the PC server receives them automatically
+over the wire, no PC-side setup needed.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
 @{b}STATUS / STOP@{ub}
 
 @{b}STATUS@{ub} and @{b}STOP@{ub} talk to an already-running daemon over a public
 message port instead of launching a new one - useful for scripts. Running
-@{b}Bifrost@{ub} again while an instance is already active is refused; use
-@{b}STOP@{ub} first, or @{b}STATUS@{ub} to check without disturbing it.
+@{b}Bifrost@{ub} again while an instance is already active doesn't launch a
+duplicate - it live-pushes any edge/tuning args this invocation specified to
+the running daemon instead. Use @{b}STOP@{ub} first to actually stop it, or
+@{b}STATUS@{ub} to check without disturbing it.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 
