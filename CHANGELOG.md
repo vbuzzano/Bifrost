@@ -2,7 +2,25 @@
 
 All notable changes to Bifrost are documented in this file.
 
-## [Unreleased]
+## [0.5.1] - 2026-07-31
+
+### Fixed
+- Documentation-only release: README.md and Bifrost.guide still described
+  mouse tuning as PC-side `bifrost_config.json` fields and were missing the
+  `NOCAPSLOCK`/`KEY=VALUE` CLI syntax introduced in 0.5.0; both now match
+  `docs/CONFIGURATION.md` and `main.c`'s actual usage. No code changes.
+
+## [0.5.0] - 2026-07-27
+
+### Changed
+- **Mouse-tuning config ownership moved from PC to Amiga daemon** - `HZ`,
+  `HZDRAG`, `SPEED`, `DELTAMAX`, `CURVELINEAR`, `CURVERATIO` are now
+  Amiga-side CLI arguments (`Bifrost HZ=60 SPEED=1.5 ...`) instead of
+  PC-side `bifrost_config.json` fields; `docs/CONFIGURATION.md` trimmed to
+  match (PC-side mouse-tuning section removed)
+- Running `Bifrost` again while an instance is already running now live-pushes
+  any edge/mouse-tuning `KEY=VALUE` args this invocation specified to the
+  running daemon via `GET_CONFIG`/`SET_CONFIG`, instead of only the edge
 
 ### Fixed
 - **UDP discovery protocol string lengths** - `DISC_MSG_LEN`/`DISC_REPLY_LEN` were
@@ -22,20 +40,6 @@ All notable changes to Bifrost are documented in this file.
 - **Failed `send()` calls were silently swallowed** (heartbeat, hello,
   client-state, edge-trigger) - now logged with `Errno()` instead of
   disappearing without a trace
-
-## [0.5.0] - 2026-07-27
-
-### Changed
-- **Mouse-tuning config ownership moved from PC to Amiga daemon** - `HZ`,
-  `HZDRAG`, `SPEED`, `DELTAMAX`, `CURVELINEAR`, `CURVERATIO` are now
-  Amiga-side CLI arguments (`Bifrost HZ=60 SPEED=1.5 ...`) instead of
-  PC-side `bifrost_config.json` fields; `docs/CONFIGURATION.md` trimmed to
-  match (PC-side mouse-tuning section removed)
-- Running `Bifrost` again while an instance is already running now live-pushes
-  any edge/mouse-tuning `KEY=VALUE` args this invocation specified to the
-  running daemon via `GET_CONFIG`/`SET_CONFIG`, instead of only the edge
-
-### Fixed
 - Several CLI live-update bugs around merging a second invocation's args into
   the running daemon's config (previously only `s_pcEdge` was live-updatable)
 
