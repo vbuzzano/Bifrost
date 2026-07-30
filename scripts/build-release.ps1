@@ -97,15 +97,15 @@ Set-Location ..
 # ============================================================================
 
 $FullZipDir = "$env:DIST_DIR\$ReleaseDir-full"
-New-Item -ItemType Directory -Path "$FullZipDir\server" -Force -ErrorAction Stop | Out-Null
+New-Item -ItemType Directory -Path "$FullZipDir\BifrostServer" -Force -ErrorAction Stop | Out-Null
 Copy-Item -Force "$env:DIST_DIR\$ReleaseDir.lha" "$FullZipDir\"
 Copy-Item -Force "README.md" "$FullZipDir\"
-Copy-Item -Force "server\*.py" "$FullZipDir\server\" -Exclude "test_*.py"
+Copy-Item -Force "server\*.py" "$FullZipDir\BifrostServer\" -Exclude "test_*.py"
 Copy-Item -Force "server\requirements.txt", "server\bifrost_config.json", `
                   "server\setup_venv.ps1", "server\setup_venv.sh", `
                   "server\start_bifrost.bat", "server\start_bifrost.sh", "server\start_bifrost.vbs", `
                   "server\install_startup.ps1", "server\uninstall_startup.ps1" `
-                  "$FullZipDir\server\"
+                  "$FullZipDir\BifrostServer\"
 Compress-Archive -Force -Path "$FullZipDir\*" -DestinationPath "$env:DIST_DIR\$ReleaseDir.zip"
 Remove-Item -Force -Recurse $FullZipDir
 
