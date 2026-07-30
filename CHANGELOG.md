@@ -6,8 +6,9 @@ All notable changes to Bifrost are documented in this file.
 
 ### Fixed
 - Documentation-only release: corrected the mouse-tuning/CLI instructions,
-  fixed inaccurate OS and CPU requirements, and added the missing PC
-  server install steps to the README/guide. No code changes.
+  fixed inaccurate OS and CPU requirements, added the missing PC server
+  install steps, and noted the PC/Amiga keyboard layout must match to
+  avoid wrong characters. No code changes.
 
 ## [0.5.0] - 2026-07-27
 
