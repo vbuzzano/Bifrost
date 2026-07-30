@@ -101,7 +101,12 @@ automatically.
 VERSION HISTORY
 
 
-~ 0.5.0 [PROGRAM_VERSION]~ (~ 27.07.2026 [PROGRAM_DATE]~)
+0.5.1 (31.07.2026)
+
+Documentation-only release: README/guide mouse-tuning and CLI syntax
+sections corrected to match the 0.5.0 behavior below. No code changes.
+
+0.5.0 (27.07.2026)
 
 Initial public release with full feature set:
   - UDP broadcast discovery - no IP address to configure on the Amiga
@@ -115,6 +120,10 @@ Initial public release with full feature set:
     very different screen resolutions
   - Automatic reconnection if the PC server restarts or the connection
     drops
+  - Mouse tuning (poll rate, speed, acceleration curve) is Amiga-side
+    CLI arguments (HZ=/SPEED=/etc.), sent to the PC automatically
+  - NOCAPSLOCK CLI option to disable PC Capslock -> Amiga sync
+  - STATUS/STOP CLI commands to query or stop an already-running daemon
 
 -----------------------------------------------------------------------------
 
