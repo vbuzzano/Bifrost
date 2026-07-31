@@ -3,7 +3,7 @@
 @$VER: ~ 0.5.1 [PROGRAM_VERSION]~
 
 @node main "Bifrost"
-@next basicusage
+@next serversetup
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 @{fg highlight}
                           @{b}Bifrost v~ 0.5.1 [PROGRAM_VERSION]~@{ub}
@@ -27,6 +27,7 @@ Amiga instead - move back the other way and you're back on the PC.
 
 @{b}TABLE OF CONTENTS@{ub}
 
+  @{" PC Server Setup      " link serversetup} - Install and start the PC-side server
   @{" Basic Usage          " link basicusage} - Commands, connecting, toggling focus
   @{" Discovery            " link discovery} - How the Amiga finds the PC server
   @{" Edge Switching       " link edgeswitching} - Switching focus by screen edge/corner
@@ -39,8 +40,92 @@ Amiga instead - move back the other way and you're back on the PC.
 
 @endnode
 
-@node basicusage "Basic Usage"
+@node serversetup "PC Server Setup"
 @prev main
+@next basicusage
+@toc main
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+@{fg highlight}
+                            @{b}PC SERVER SETUP@{ub}
+@{fg text}
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+Bifrost needs a PC-side server running before the Amiga client has
+anything to connect to. Do this first.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}1. Install@{ub}
+
+Copy the @{b}BifrostServer@{ub} folder (from the .zip download, alongside
+this .lha) to anywhere on the PC, e.g. @{b}C:\BifrostServer@{ub} or
+@{b}~/BifrostServer@{ub}.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}2. Set Up (once)@{ub}
+
+Open a terminal in the BifrostServer folder and run:
+
+  cd BifrostServer
+
+  Windows:      pwsh .\setup_venv.ps1
+  Linux/macOS:  ./setup_venv.sh
+
+This creates a local Python virtual environment (.venv) and installs the
+required packages (pynput and friends). Requires Python 3.8+.
+
+(macOS/Linux: the .zip doesn't preserve the executable bit - run
+@{b}chmod +x BifrostServer/start_bifrost.sh@{ub} once after extracting.)
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}3. Launch@{ub}
+
+  Windows:      .venv\Scripts\python main.py
+  Linux/macOS:  python main.py
+
+@{b}Options:@{ub}
+
+  python main.py --port 9999    - Use a custom TCP port (default: 7890)
+
+The server immediately starts broadcasting on the LAN so any Amiga
+running Bifrost can find it (see @{" Discovery " link discovery}), and
+begins capturing the PC's mouse and keyboard in the background.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}4. Auto-Start At Login (optional)@{ub}
+
+@{b}Windows:@{ub}
+
+  cd BifrostServer
+  pwsh .\install_startup.ps1
+
+Adds a shortcut to the Startup folder so Bifrost launches automatically
+at every login, with no console window (status shown in the systray).
+Logs go to BifrostServer\bifrost.log. Run uninstall_startup.ps1 to
+remove it.
+
+@{b}macOS:@{ub}
+
+start_bifrost.sh is a plain launch script - it doesn't register itself
+anywhere. Open System Settings -> General -> Login Items, click +, and
+add BifrostServer/start_bifrost.sh.
+
+@{b}Linux:@{ub}
+
+Same idea - most desktop environments have their own "Startup
+Applications" setting (e.g. GNOME: Settings -> Apps -> Startup
+Applications; KDE: System Settings -> Autostart). Point it at
+BifrostServer/start_bifrost.sh.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@endnode
+
+@node basicusage "Basic Usage"
+@prev serversetup
 @next discovery
 @toc main
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
@@ -51,14 +136,11 @@ Amiga instead - move back the other way and you're back on the PC.
 
 @{b}On the PC@{ub}
 
-Start the Python server (from the @{b}server@{ub} directory of the Bifrost
-distribution):
+See @{" PC Server Setup " link serversetup} if you haven't installed the
+server yet. Once installed, start it from the BifrostServer folder:
 
-  python main.py
-
-The server immediately starts broadcasting on the LAN so any Amiga
-running Bifrost can find it (see @{" Discovery " link discovery}), and
-begins capturing the PC's mouse and keyboard in the background.
+  Windows:      .venv\Scripts\python main.py
+  Linux/macOS:  python main.py
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 
@@ -98,11 +180,10 @@ over the wire, no PC-side setup needed.
 
 @{b}STATUS / STOP@{ub}
 
-@{b}STATUS@{ub} and @{b}STOP@{ub} talk to an already-running daemon over a public
-message port instead of launching a new one - useful for scripts. Running
-@{b}Bifrost@{ub} again while an instance is already active doesn't launch a
-duplicate - it live-pushes any edge/tuning args this invocation specified to
-the running daemon instead. Use @{b}STOP@{ub} first to actually stop it, or
+@{b}STATUS@{ub} and @{b}STOP@{ub} talk to an already-running daemon instead
+of launching a new one - useful for scripts. Running @{b}Bifrost@{ub} again
+while an instance is already active updates its settings live instead of
+starting a duplicate. Use @{b}STOP@{ub} first to actually stop it, or
 @{b}STATUS@{ub} to check without disturbing it.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
@@ -246,16 +327,13 @@ exactly on the corresponding corner.
 
 @{b}Amiga side@{ub}
 
-Bifrost requires a TCP/IP stack providing bsdsocket.library:
+Requires AmigaOS 2.0 or later (only tested on AmigaOS 3.x hardware so
+far) and a 68020 or better CPU (stock or accelerated). Also requires a
+TCP/IP stack:
 
   - @{b}AmiTCP@{ub} (classic AmigaOS 3.x)
   - @{b}Roadshow@{ub}
   - @{b}ApolloOS@{ub} networking stack
-
-No specific accelerator or chipset is required - Bifrost talks to
-input.device and the network stack only, so it runs on any Amiga with a
-working TCP/IP stack and enough memory for the network buffers,
-including plain 68000 machines.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 
@@ -333,6 +411,17 @@ Requires Python 3 and the @{b}pynput@{ub} package on the PC.
     access (some games/overlays do).
   - On Linux/macOS, some imprecision compared to Windows is expected
     (see @{" Compatibility " link compatibility}).
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
+@{b}Wrong characters typed (keyboard layout mismatch)@{ub}
+
+  Bifrost currently assumes a US keyboard layout on both sides. If the
+  PC uses a different layout (Swiss-French, German, etc.), keys will
+  type the wrong characters.
+
+  Fix: set the PC to a US layout and load the matching Amiga keymap
+  with @{b}SetMap usa1@{ub}.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 

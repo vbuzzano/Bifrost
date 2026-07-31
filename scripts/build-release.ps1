@@ -78,7 +78,8 @@ Copy-Item -Force "$env:ASSETS_DIR\Install.info" "$env:DIST_DIR\$ReleaseDir\Insta
 Move-Item -Force "$env:DIST_DIR\$env:PROGRAM_EXE_NAME.readme" "$env:DIST_DIR\$ReleaseDir.readme"
 $readmePath = "$env:DIST_DIR\$ReleaseDir.readme"
 $lf = [System.IO.File]::ReadAllText($readmePath) -replace "`r`n", "`n"
-[System.IO.File]::WriteAllText($readmePath, $lf, [System.Text.Encoding]::UTF8)
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($readmePath, $lf, $utf8NoBom)
 Copy-Item -Force "$env:ASSETS_DIR\Ascii.info" "$env:DIST_DIR\$ReleaseDir.readme.info"
 
 ## Folder icon (sits next to the $ReleaseDir/ dir in the archive, not inside it)

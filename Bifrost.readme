@@ -44,24 +44,30 @@ COMPATIBILITY
 
 == Works On ==
 
-Any Amiga with a working TCP/IP stack providing bsdsocket.library:
+AmigaOS 2.0 or later, on a 68020+ CPU (stock or accelerated), with a
+TCP/IP stack:
   - AmiTCP (classic AmigaOS 3.x)
   - Roadshow
   - ApolloOS networking stack
 
-No specific accelerator or chipset required - ~ Bifrost [PROGRAM_NAME]~ talks to input.device
-and the network stack only.
+== Tested On ==
 
-== Recommended OS ==
-
-AmigaOS 3.x or ApolloOS with Roadshow/AmiTCP. PC server: Windows
-recommended (hardware-accurate Raw Input mouse deltas); Linux/macOS
-supported on a best-effort basis via pynput.
+Amiga side: only tested on AmigaOS 3.x hardware so far (AmigaOS 2.0+
+should work but is untested). PC server: Windows recommended
+(hardware-accurate mouse deltas); Linux/macOS supported on a
+best-effort basis.
 
 == Does NOT Work On ==
 
-Machines without any TCP/IP stack, or not reachable on the same LAN
-segment as the PC (discovery is a broadcast and does not cross routers).
+AmigaOS 1.x, plain 68000/68010 machines, or machines without a TCP/IP
+stack or not on the same LAN as the PC.
+
+== Known Limitation: Keyboard Layout ==
+
+Bifrost currently assumes a US keyboard layout on both sides. If the PC
+uses a different layout (Swiss-French, German, etc.), keys will type
+the wrong characters. Set the PC to a US layout and load a matching
+Amiga keymap (SetMap usa1) to avoid this.
 
 -----------------------------------------------------------------------------
 
@@ -69,7 +75,26 @@ segment as the PC (discovery is a broadcast and does not cross routers).
 INSTALLATION
 
 
-~ Bifrost [PROGRAM_NAME]~ can be installed using the included Installer script or manually.
+~ Bifrost [PROGRAM_NAME]~ needs both an Amiga side and a PC side installed - the Amiga
+alone won't connect to anything.
+
+
+== PC Server Setup (required) ==
+
+The PC server is in the `BifrostServer/` folder of the .zip download
+alongside this .lha (also on GitHub - see SUPPORT below).
+
+1. Copy BifrostServer/ anywhere on the PC
+2. cd BifrostServer
+3. Windows: pwsh .\setup_venv.ps1   |   Linux/macOS: ./setup_venv.sh
+4. Windows: .venv\Scripts\python main.py   |   Linux/macOS: python main.py
+
+The server starts broadcasting on the LAN immediately; no further PC-side
+config is required for a default setup. See README.md in the .zip for
+auto-start-at-login instructions.
+
+
+~ Bifrost [PROGRAM_NAME]~ (Amiga side) can be installed using the included Installer script or manually.
 
 
 == Method 1: Amiga Installer (Recommended) ==
@@ -108,22 +133,7 @@ sections corrected to match the 0.5.0 behavior below. No code changes.
 
 0.5.0 (27.07.2026)
 
-Initial public release with full feature set:
-  - UDP broadcast discovery - no IP address to configure on the Amiga
-  - Full mouse (relative deltas, wheel, buttons) and keyboard forwarding
-  - Manual focus toggle (Scroll Lock) and emergency PC recovery (Pause)
-  - Edge/corner-triggered automatic focus switching (8 configurable
-    edges/corners), with push resistance to avoid accidental switches
-    and automatic suppression while dragging
-  - Cursor placement on entry: the cursor reappears at the position
-    mirroring where it exited the other screen, scaled correctly across
-    very different screen resolutions
-  - Automatic reconnection if the PC server restarts or the connection
-    drops
-  - Mouse tuning (poll rate, speed, acceleration curve) is Amiga-side
-    CLI arguments (HZ=/SPEED=/etc.), sent to the PC automatically
-  - NOCAPSLOCK CLI option to disable PC Capslock -> Amiga sync
-  - STATUS/STOP CLI commands to query or stop an already-running daemon
+Initial public release
 
 -----------------------------------------------------------------------------
 

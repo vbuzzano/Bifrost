@@ -43,8 +43,9 @@ Bifrost
 - Network connectivity to Amiga (Ethernet or USB FTDI)
 
 ### Amiga Requirements
-- Any Amiga with a TCP/IP stack (AmiTCP, Roadshow, or ApolloOS networking) — no specific accelerator or chipset required
-- AmigaOS 3.x
+- AmigaOS 2.0 or later — only tested on AmigaOS 3.x hardware so far (see Testing & Validation below)
+- 68020 or better CPU (stock or accelerated)
+- A TCP/IP stack (AmiTCP, Roadshow, or ApolloOS networking)
 - Network connectivity to PC
 
 ### Setup
@@ -105,11 +106,11 @@ Bifrost ?                     # Print full usage/help
 
 **Edge Options:** `TOP`, `BOTTOM`, `LEFT`, `RIGHT`, `TOPLEFT`, `TOPRIGHT`, `BOTTOMLEFT`, `BOTTOMRIGHT`
 
-**Mouse Tuning (`KEY=VALUE`):** `HZ=n` poll rate in Hz (default 50) · `HZDRAG=n` poll rate while dragging (default 15, clamped ≤ `HZ`) · `SPEED=n` speed multiplier, 0.2-3.0 (default 1.0) · `DELTAMAX=n` startup glitch filter in pixels (default 80) · `CURVELINEAR=n` acceleration curve linear threshold (default 2.0) · `CURVERATIO=n` acceleration curve compression ratio (default 0.5). Running `Bifrost` again while an instance is already running live-pushes any edge/tuning args to it instead of launching a duplicate.
+**Mouse Tuning (`KEY=VALUE`):** `HZ=n` poll rate (default 50) · `HZDRAG=n` poll rate while dragging (default 15) · `SPEED=n` speed, 0.2-3.0 (default 1.0) · `DELTAMAX=n` startup glitch filter (default 80) · `CURVELINEAR=n`/`CURVERATIO=n` acceleration curve shape (defaults 2.0/0.5).
 
-**STATUS / STOP:** Talk to the already-running daemon over a public message port (`Bifrost_Port`) instead of launching a new one - useful for scripts. Running `Bifrost` again while an instance is already active applies any new edge/tuning args live (use `STOP` first to actually stop it, or `STATUS` to check).
+**STATUS / STOP:** Talk to the already-running daemon instead of launching a new one - useful for scripts. Running `Bifrost` again while already active updates its settings live instead of starting a duplicate. Use `STOP` first to actually stop it, or `STATUS` to check.
 
-**⚠️ Port Limitation:** If you change the port on PC, you must also specify it on Amiga CLI. The UDP discovery protocol doesn't currently transmit the TCP port — it's assumed to be `UDP port - 1`. This will be fixed in Phase 2 (auto-negotiation).
+**⚠️ Port Limitation:** If you change the port on PC, you must also specify it on the Amiga CLI - it isn't auto-detected yet.
 
 ### Configuration
 
@@ -157,7 +158,9 @@ Updates every 0.5 seconds to reflect connection state changes in real-time.
 
 ## Known Limitations
 
-**Ctrl+Alt+Del cannot be captured.** While in Amiga focus mode, pressing Ctrl+Alt+Del on the PC keyboard still brings up Windows' secure screen (lock/task manager/sign out). This is Windows' Secure Attention Sequence (SAS): it is intercepted by the OS below any user-mode hook (including the `WH_KEYBOARD_LL` hook the PC server uses) specifically so that no application - malicious or not - can intercept credential entry. There is no supported way to suppress it from a user-mode process; only a signed kernel-mode keyboard filter driver could, which is out of scope for Bifrost's current architecture.
+**Ctrl+Alt+Del cannot be captured.** While in Amiga focus mode, pressing Ctrl+Alt+Del on the PC still brings up Windows' secure screen (lock/task manager/sign out). This is a Windows security feature no application can override, so there's no fix on Bifrost's side.
+
+**PC and Amiga keyboard layouts must match.** Bifrost currently assumes a US keyboard layout on both sides. If the PC uses a different layout (e.g. Swiss-French, German), keys will type the wrong characters. Set the PC to a US layout and use the matching Amiga keymap (`SetMap usa1`) to avoid this.
 
 ## Architecture
 
@@ -236,54 +239,14 @@ make clean
 make upload
 ```
 
-## Version History
-
-### v0.5.0
-- ✅ Mouse-tuning config (`HZ`/`HZDRAG`/`SPEED`/`DELTAMAX`/`CURVELINEAR`/`CURVERATIO`) moved from PC config file to Amiga-side CLI args
-- ✅ Live config push to an already-running daemon (edge + mouse-tuning) via a second `Bifrost` invocation
-- ✅ Fixed several CLI live-update merge bugs
-
-### v0.4.3
-- ✅ `PKT_HEARTBEAT` replaces `PKT_PING` - liveness independent of packet backlog, carries Amiga cursor position
-- ✅ PC Capslock state sync to Amiga, `NOCAPSLOCK` CLI toggle
-- ✅ Fixed Left/Right Amiga key qualifiers to track per-side state instead of always setting both
-- ✅ Improved logging and connection status reporting
-
-### v0.4.1 
-- ✅ Refactor source codes
-- ✅ split the commodity part to another project
-- Many other things to release the
-
-   first fonctionnal Beta release
-
-### v0.4
-- ✅ Introduce commodity
-
-### v0.3
-- ✅ Piecewise-linear acceleration curve
-- ✅ Sub-pixel float accumulation
-- ✅ TCP_NODELAY for low-latency delivery
-- ✅ Edge detection and boundary handling
-- ✅ UDP auto-discovery
-- ✅ JSON configuration file
-
-### v0.2
-- ✅ Smooth mouse movement
-- ✅ Keyboard forwarding
-- ✅ Toggle switching
-
-### v0.1
-- ✅ Initial client-server architecture
-- ✅ TCP/IP mouse forwarding
-- ✅ Basic acceleration curve
-
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [ROADMAP.md](ROADMAP.md) | Development roadmap (Phases 2-6) |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | **Full configuration guide** — parameter details, profiles, troubleshooting |
-| [MILESTONES.txt](MILESTONES.txt) | Release history and validation points |
+| [MILESTONES.txt](MILESTONES.txt) | Author's dev-log of internal checkpoints (not a changelog) |
 
 ## License
 
