@@ -7,8 +7,10 @@ All notable changes to Bifrost are documented in this file.
 ### Fixed
 - Documentation-only release: corrected the mouse-tuning/CLI instructions,
   fixed inaccurate OS and CPU requirements, added the missing PC server
-  install steps, and noted the PC/Amiga keyboard layout must match to
-  avoid wrong characters. No code changes.
+  install steps, fixed a UTF-8 BOM that broke `more` on real Amigas, and
+  noted that both PC and Amiga must be set to a US keyboard layout to
+  avoid wrong characters (accents aren't supported at all yet). No code
+  changes.
 
 ## [0.5.0] - 2026-07-27
 

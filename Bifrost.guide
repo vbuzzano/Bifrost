@@ -416,12 +416,13 @@ Requires Python 3 and the @{b}pynput@{ub} package on the PC.
 
 @{b}Wrong characters typed (keyboard layout mismatch)@{ub}
 
-  Bifrost currently assumes a US keyboard layout on both sides. If the
-  PC uses a different layout (Swiss-French, German, etc.), keys will
-  type the wrong characters.
+  Both PC and Amiga must be set to a US keyboard layout. Bifrost's key
+  mapping is hardcoded for US - setting the PC and Amiga to the same
+  non-US layout (e.g. both Swiss-French) does NOT fix it; keys like
+  Y/Z will still come out swapped. Accented characters are not
+  supported at all yet - they're silently dropped.
 
-  Fix: set the PC to a US layout and load the matching Amiga keymap
-  with @{b}SetMap usa1@{ub}.
+  Fix: set the PC to a US layout and the Amiga to @{b}SetMap usa1@{ub}.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 

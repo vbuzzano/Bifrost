@@ -63,10 +63,12 @@ stack or not on the same LAN as the PC.
 
 == Known Limitation: Keyboard Layout ==
 
-Bifrost currently assumes a US keyboard layout on both sides. If the PC
-uses a different layout (Swiss-French, German, etc.), keys will type
-the wrong characters. Set the PC to a US layout and load a matching
-Amiga keymap (SetMap usa1) to avoid this.
+Both PC and Amiga must be set to a US keyboard layout. Bifrost's key
+mapping is hardcoded for US - setting the PC and Amiga to the same
+non-US layout (e.g. both Swiss-French) does NOT fix it; keys like Y/Z
+will still come out swapped. Set the PC to a US layout and the Amiga to
+SetMap usa1. Accented characters are not supported at all yet - they're
+silently dropped.
 
 -----------------------------------------------------------------------------
 

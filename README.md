@@ -160,7 +160,7 @@ Updates every 0.5 seconds to reflect connection state changes in real-time.
 
 **Ctrl+Alt+Del cannot be captured.** While in Amiga focus mode, pressing Ctrl+Alt+Del on the PC still brings up Windows' secure screen (lock/task manager/sign out). This is a Windows security feature no application can override, so there's no fix on Bifrost's side.
 
-**PC and Amiga keyboard layouts must match.** Bifrost currently assumes a US keyboard layout on both sides. If the PC uses a different layout (e.g. Swiss-French, German), keys will type the wrong characters. Set the PC to a US layout and use the matching Amiga keymap (`SetMap usa1`) to avoid this.
+**Both PC and Amiga must be set to a US keyboard layout.** Bifrost's key mapping is hardcoded for US - it doesn't help to set the PC and Amiga to the same non-US layout (e.g. both to Swiss-French), since keys like Y/Z will still come out swapped. Set the PC to a US layout and the Amiga to `SetMap usa1`. Accented characters (é, è, ü, etc.) aren't supported at all yet - they're silently dropped.
 
 ## Architecture
 
