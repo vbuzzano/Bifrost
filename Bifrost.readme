@@ -9,17 +9,16 @@ Architecture:  m68k-amigaos
 
 -----------------------------------------------------------------------------
 
-                ~ Amiga Mouse and Keyboard Input Controller via PC (Windows/Mac/Linux) [PROGRAM_DESCRIPTION]~
+     ~ Amiga Mouse and Keyboard Input Controller via PC (Windows/Mac/Linux) [PROGRAM_DESCRIPTION]~
 
 -----------------------------------------------------------------------------
 
 
 WHAT IS IT?
 
-
-~ Bifrost [PROGRAM_NAME]~ is a lightweight background daemon that lets your Amiga
-share the mouse and keyboard of a PC (Windows/Linux/Mac) on the same LAN -
-like a software KVM switch, but without the switch or the extra cables.
+~ Bifrost [PROGRAM_NAME]~ is a lightweight background daemon that lets your Amiga share 
+the mouse and keyboard of a PC (Windows/Linux/Mac) on the same LAN - like 
+a software KVM switch, but without the switch or the extra cables.
 
 A small server runs on the PC and captures the mouse/keyboard globally. The
 Amiga client finds it automatically via a UDP broadcast (no IP address to
