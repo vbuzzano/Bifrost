@@ -102,29 +102,35 @@ New-Item -ItemType Directory -Path "$FullZipDir\BifrostServer" -Force -ErrorActi
 Copy-Item -Force "$env:DIST_DIR\$ReleaseDir.lha" "$FullZipDir\"
 Copy-Item -Force "README.md" "$FullZipDir\"
 Copy-Item -Force "server\*.py" "$FullZipDir\BifrostServer\" -Exclude "test_*.py"
-Copy-Item -Force "server\requirements.txt", "server\bifrost_config.json", `
+Copy-Item -Force "server\requirements.txt", `
                   "server\setup_venv.ps1", "server\setup_venv.sh", `
                   "server\start_bifrost.bat", "server\start_bifrost.sh", "server\start_bifrost.vbs", `
                   "server\install_startup.ps1", "server\uninstall_startup.ps1" `
                   "$FullZipDir\BifrostServer\"
+
+# Release config: force debug off regardless of what's checked into the source tree
+$releaseConfig = (Get-Content "server\bifrost_config.json" -Raw) -replace '"enabled"(\s*:\s*)true', '"enabled"$1false'
+Set-Content -Path "$FullZipDir\BifrostServer\bifrost_config.json" -Value $releaseConfig -NoNewline
+
 Compress-Archive -Force -Path "$FullZipDir\*" -DestinationPath "$env:DIST_DIR\$ReleaseDir.zip"
 Remove-Item -Force -Recurse $FullZipDir
 
 # ============================================================================
 # Two release flavors from here:
-#   - GitHub: "$ReleaseDir.lha"/"$ReleaseDir.zip" (versioned names, e.g.
-#     Bifrost-0.3.lha/.zip) stay in dist/ as-is - these are what get
-#     attached to a GitHub release.
+#   - GitHub: "$ReleaseDir.zip" (versioned name, e.g. Bifrost-0.3.zip) stays
+#     in dist/ as-is - this is what gets attached to a GitHub release. The
+#     .lha lives inside it; there's no loose .lha anywhere in dist/.
 #   - Aminet: filenames without the version (Aminet tracks versions itself,
 #     re-uploading under the same name each time) - built into dist/Aminet/.
 # ============================================================================
 
 New-Item -ItemType Directory -Path "$env:DIST_DIR\Aminet" -Force -ErrorAction Stop | Out-Null
-Copy-Item -Force "$env:DIST_DIR\$ReleaseDir.lha" "$env:DIST_DIR\Aminet\$env:PROGRAM_NAME.lha"
+# No loose .lha here - it already travels inside $ReleaseDir.zip
 Copy-Item -Force "$env:DIST_DIR\$ReleaseDir.zip" "$env:DIST_DIR\Aminet\$env:PROGRAM_NAME.zip"
 Move-Item -Force "$env:DIST_DIR\$ReleaseDir.readme" "$env:DIST_DIR\Aminet\$env:PROGRAM_NAME.readme"
 
-# Clean up intermediate versioned artifacts (the .lha itself is kept for GitHub)
+# Clean up intermediate versioned artifacts - the .lha travels inside $ReleaseDir.zip, no loose copy needed
 Remove-Item -Force -Recurse "$env:DIST_DIR\$ReleaseDir.readme.info"
 Remove-Item -Force -Recurse "$env:DIST_DIR\$ReleaseDir"
 Remove-Item -Force "$env:DIST_DIR\$ReleaseDir.info"
+Remove-Item -Force "$env:DIST_DIR\$ReleaseDir.lha"
