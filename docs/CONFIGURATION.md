@@ -88,7 +88,7 @@ the Amiga for the full list of arguments and their defaults. See
 
 ### `debug.enabled` (Console Output)
 
-**Default:** `true`  
+**Default:** `false`  
 **Options:** `true` or `false`
 
 **What it does:** Master switch for console logging. When `false`, `log_mouse`/`log_keys` below have no effect - nothing is printed.

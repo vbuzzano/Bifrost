@@ -127,7 +127,7 @@ Bifrost ?                     # Print full usage/help
     "kill_modifier": "ctrl"
   },
   "debug": {
-    "enabled": true
+    "enabled": false
   }
 }
 ```
