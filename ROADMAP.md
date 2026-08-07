@@ -156,17 +156,19 @@ background network daemon with nothing to accelerate. Only the OSes below
 are worth pursuing. **No version target** - each is its own toolchain/SDK
 effort, scheduled opportunistically rather than tied to a release number.
 
-### Phase 8.1: AmigaOS 4.x (PPC)
+### Later 
+
+**AmigaOS 4.x (PPC)**
 - Separate build using the AmigaOS4 SDK (clib2/newlib) instead of vbcc/NDK39
 - Audit input.device/rawkey API differences from OS3.x
 - **Impact:** Native support on PPC AmigaOne/Sam440/etc. hardware
 
-### Phase 8.2: MorphOS (PPC)
+**MorphOS (PPC)**
 - Separate build using the MorphOS SDK
 - Same API-compatibility audit as 8.1, different ABI/toolchain
 - **Impact:** Native support on Pegasos/Efika/Mac mini G4 etc.
 
-### Phase 8.3: AROS (x86)
+**AROS (x86)**
 - Not a vbcc target at all - needs AROS' own gcc-based toolchain, not
   vbcc/NDK39, so this is a heavier lift than 8.1/8.2 despite being the
   same general idea
@@ -183,49 +185,6 @@ effort, scheduled opportunistically rather than tied to a release number.
 - Drag-and-drop file transfer
 - Performance profiling mode (measure round-trip latency)
 - Alternative transport (UDP for lower latency, with packet recovery)
-
----
-
-## Architecture Notes
-
-### Current (v0.3)
-```
-PC (capture.py) --TCP/IP--> Amiga (Bifrost driver) -> input.device
-         ↓
-   [pynput capture]
-         ↓
-   [piecewise curve]
-         ↓
-   [8-byte packets @ 50Hz (20ms)]
-```
-
-### Phase 3+ (Bidirectional)
-```
-PC (capture.py) <--TCP/IP--> Amiga (Bifrost server/client)
-         ↑                          ↓
-   [pynput capture]          [input.device]
-   [suppress control] <------[toggle state]
-```
-
-### Phase 4+ (Multi-Client)
-```
-                        <--TCP/IP--> Amiga #1 (edge: LEFT)
-PC (tcp_server.py)      <--TCP/IP--> Amiga #2 (edge: RIGHT)
-         ↓              <--TCP/IP--> Amiga #3 (edge: TOP)
-   [client registry: edge -> connection]
-         ↓
-   [focus routed to whichever edge fired,
-    back to PC via that client's own PKT_EDGE_TRIGGER]
-```
-
-### Phase 6+ (Full Stack)
-```
-PC GUI (Tkinter)    Amiga MUI Prefs
-    ↓                      ↓
-capture.py <--TCP/IP--> bifrost (daemon + prefs)
-    ↓                      ↓
-pynput              input.device + config
-```
 
 ---
 
