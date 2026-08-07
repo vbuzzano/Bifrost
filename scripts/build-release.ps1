@@ -108,9 +108,11 @@ Copy-Item -Force "server\requirements.txt", `
                   "server\install_startup.ps1", "server\uninstall_startup.ps1" `
                   "$FullZipDir\BifrostServer\"
 
-# Release config: force debug off regardless of what's checked into the source tree
-$releaseConfig = (Get-Content "server\bifrost_config.json" -Raw) -replace '"enabled"(\s*:\s*)true', '"enabled"$1false'
-Set-Content -Path "$FullZipDir\BifrostServer\bifrost_config.json" -Value $releaseConfig -NoNewline
+# Release config: ship the tracked documented-defaults file, never the
+# local working copy (server\bifrost_config.json is gitignored precisely
+# because it carries personal overrides like right_amiga=ctrl for a
+# keyboard with no physical Right Windows key, or debug.enabled=true)
+Copy-Item -Force "server\bifrost_config.default.json" "$FullZipDir\BifrostServer\bifrost_config.json"
 
 Compress-Archive -Force -Path "$FullZipDir\*" -DestinationPath "$env:DIST_DIR\$ReleaseDir.zip"
 Remove-Item -Force -Recurse $FullZipDir

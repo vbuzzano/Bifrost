@@ -1,0 +1,17 @@
+{
+  "comment": "Bifrost Server Configuration. 'network.port' sets the default TCP port (UDP discovery uses a fixed port, 7891, auto-detected by the Amiga - no need to match it manually); 'python main.py --port N' overrides it for one-off runs. Mouse tuning (hz/hz_drag/speed/delta_max/curve) is owned by the Amiga daemon and received automatically over the wire - see Bifrost's CLI HZ=/HZDRAG=/SPEED=/DELTAMAX=/CURVELINEAR=/CURVERATIO= arguments.",
+  "network": {
+    "port": 7890
+  },
+  "keys": {
+    "toggle": "scroll_lock",
+    "emergency": "pause",
+    "kill_modifier": "ctrl",
+    "right_amiga": "windows"
+  },
+  "debug": {
+    "enabled": false,
+    "log_mouse": false,
+    "log_keys": true
+  }
+}

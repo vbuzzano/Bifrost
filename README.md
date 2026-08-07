@@ -114,7 +114,7 @@ Bifrost ?                     # Print full usage/help
 
 **Mouse tuning is Amiga-side** (see `HZ=`/`SPEED=`/etc. above) - it's sent to the PC automatically over the wire, no PC-side setup needed.
 
-**PC-side config** is everything else: edit `server/bifrost_config.json`:
+**PC-side config** is everything else: edit `server/bifrost_config.json` (copy it from `bifrost_config.default.json` first if it doesn't exist yet - it's entirely optional, the server runs fine with just the built-in defaults):
 
 ```json
 {

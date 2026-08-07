@@ -4,7 +4,7 @@ This document explains all configuration parameters in `bifrost_config.json` and
 
 ## Quick Start
 
-Edit `server/bifrost_config.json` to adjust parameters. No code changes needed. Restart server for changes to take effect.
+Copy `server/bifrost_config.default.json` to `server/bifrost_config.json` (gitignored - your personal copy, never committed) and edit it to adjust parameters. No code changes needed. Restart server for changes to take effect. The file is entirely optional - without it, the server runs with the same built-in defaults shown below.
 
 ```bash
 # Start server with config loaded

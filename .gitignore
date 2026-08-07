@@ -115,6 +115,11 @@ __pycache__/
 .pytest_cache/
 bifrost.log
 
+# Local working config - personal overrides (right_amiga, debug, etc.)
+# never get committed/distributed by accident. server/bifrost_config.default.json
+# is the tracked, documented-defaults source of truth; copy it here to start.
+server/bifrost_config.json
+
 #############################################################################
 # Distribution / Packaging
 #############################################################################
