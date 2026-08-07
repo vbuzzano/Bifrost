@@ -2,7 +2,7 @@
 
 All notable changes to Bifrost are documented in this file.
 
-## [0.6.0] - 2026-08-03
+## [0.6.0] - 2026-08-08
 
 ### Added
 - Auto-negotiated TCP port: the PC embeds its actual TCP listening port in

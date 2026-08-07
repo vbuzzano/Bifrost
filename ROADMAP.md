@@ -12,7 +12,7 @@ just "does it technically work."
 
 ## Current Status
 
-**v0.6.0** (2026-08-03) - Phase 2 complete
+**v0.6.0** (2026-08-08) - Phase 2 complete
 - ✅ UDP discovery auto-negotiates the PC's TCP port - no manual port
   matching needed on either side, even if the PC's port changes
 
