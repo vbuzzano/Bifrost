@@ -21,7 +21,9 @@
 #define Bifrost_PORT_NAME   "Bifrost_Port" // WARNING: Modify with caution!
 
 #define Bifrost_DEFAULT_PORT 7890
-#define Bifrost_DISC_PORT    7891    // UDP discovery port (= TCP port + 1)
+#define Bifrost_DISC_PORT    7891    // UDP discovery port - fixed, independent
+                                      // of the TCP port, which is negotiated
+                                      // via the discovery payload instead
 
 
 #define BMSG_CMD_QUIT        0   // Stop daemon (disconnects from PC first)

@@ -6,8 +6,10 @@
  * with main.c (see bifrost.h) - not a separate program, just a second
  * Task within the same binary.
  *
- * Outer loop: wait for Bifrost_DISCOVER broadcast on UDP port (s_port+1),
- *   reply Bifrost_HERE, then TCP connect to sender on s_port.
+ * Outer loop: wait for Bifrost_DISCOVER broadcast on UDP port
+ *   (Bifrost_DISC_PORT, fixed), reply Bifrost_HERE, then TCP connect to
+ *   sender on the port negotiated from the broadcast payload (falls back
+ *   to s_port if the payload carries none).
  * Inner loop: recv 8-byte packets and inject events into input.device.
  *   On disconnect: close TCP, go back to outer UDP discovery loop.
  *   CTRL+C, or a "Bifrost STOP" from the control port: exit both loops
@@ -899,6 +901,7 @@ void daemon(void)
     LONG                recvd;
     LONG                reuseVal;
     LONG                discPort;
+    LONG                negotiatedPort;
     BOOL                quit       = FALSE;
     BOOL                disconnected;
 
@@ -910,7 +913,7 @@ void daemon(void)
 
     portSig = 1L << s_ControlPort->mp_SigBit;
 
-    discPort = (LONG)(s_port + 1);
+    discPort = (LONG)Bifrost_DISC_PORT;
 
     // Create UDP socket for receiving discovery broadcasts
     udpSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -1005,7 +1008,31 @@ void daemon(void)
         sendto(udpSock, (APTR)DISC_REPLY, DISC_REPLY_LEN, 0,
                (struct sockaddr *)&fromSa, (LONG)sizeof(fromSa));
 
-        // TCP connect to server (same IP, TCP port s_port)
+        // Parse an optional ":<port>" suffix after the fixed prefix - the PC
+        // embeds its actual TCP listening port here (see
+        // server/discovery.py) so both sides no longer need a matching port
+        // configured by hand. Falls back to s_port (CLI-configurable,
+        // Bifrost_DEFAULT_PORT otherwise) if absent/malformed, e.g. a
+        // discovery packet from an older PC build.
+        negotiatedPort = (LONG)s_port;
+        if (rc > DISC_MSG_LEN && buf[DISC_MSG_LEN] == ':')
+        {
+            LONG parsedPort = 0;
+            LONG j = DISC_MSG_LEN + 1;
+            LONG digits = 0;
+            while (j < rc && digits < 5 && buf[j] >= '0' && buf[j] <= '9')
+            {
+                parsedPort = parsedPort * 10 + (buf[j] - '0');
+                j++;
+                digits++;
+            }
+            if (parsedPort > 0 && parsedPort < 65536)
+            {
+                negotiatedPort = parsedPort;
+            }
+        }
+
+        // TCP connect to server (same IP, negotiated TCP port)
         tcpSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (tcpSock < 0)
         {
@@ -1016,7 +1043,7 @@ void daemon(void)
         for (i = 0; i < (LONG)sizeof(tcpSa); i++) ((UBYTE *)&tcpSa)[i] = 0;
         tcpSa.sin_len         = (UBYTE)sizeof(tcpSa);
         tcpSa.sin_family      = (UBYTE)AF_INET;
-        tcpSa.sin_port        = (UWORD)s_port;
+        tcpSa.sin_port        = (UWORD)negotiatedPort;
         tcpSa.sin_addr.s_addr = fromSa.sin_addr.s_addr;  // server IP from UDP sender
 
         PrintF(PROGRAM_NAME ": discovered server, connecting to %ld.%ld.%ld.%ld:%ld",
@@ -1024,7 +1051,7 @@ void daemon(void)
                (LONG)(fromSa.sin_addr.s_addr >> 16) & 0xFF,
                (LONG)(fromSa.sin_addr.s_addr >> 8) & 0xFF,
                (LONG)fromSa.sin_addr.s_addr & 0xFF,
-               (LONG)s_port);
+               negotiatedPort);
 
         if (connectWithTimeout(tcpSock, &tcpSa, CONNECT_TIMEOUT_SECS) != 0)
         {

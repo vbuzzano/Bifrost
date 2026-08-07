@@ -17,8 +17,8 @@
 
 // ---> BEGIN GENERATED PROGRAM_CONSTANTS
 #define PROGRAM_NAME "Bifrost"
-#define PROGRAM_VERSION "0.5.1"
-#define PROGRAM_DATE "31.07.2026"
+#define PROGRAM_VERSION "0.6.0"
+#define PROGRAM_DATE "08.08.2026"
 #define PROGRAM_AUTHOR "Vincent Buzzano"
 #define PROGRAM_DESC_SHORT "Amiga Mouse & Keyboard Remote Controller"
 // <--- END GENERATED PROGRAM CONSTANTS
@@ -103,7 +103,13 @@
 // global data segment, so this is a plain shared variable, not IPC.
 //===========================================================================
 
-extern ULONG s_port;       // TCP port; discovery = s_port + 1
+extern ULONG s_port;       // CLI-configured/default TCP port. Used as the
+                           // discovery fallback if a packet carries no
+                           // negotiated port suffix, AND as the relaunch
+                           // comparison anchor (main.c's "already running on
+                           // a different port" check) - never overwritten
+                           // with the actually-negotiated port, so it stays
+                           // stable across reconnects for that comparison
 extern UBYTE s_pcEdge;     // PC-side edge/corner that switches focus to Amiga
 extern UBYTE s_amigaEdge;  // Amiga-side mirror of s_pcEdge (switches back to PC)
 extern BOOL  s_capslockEnabled; // FALSE via CLI "NOCAPSLOCK" - default TRUE

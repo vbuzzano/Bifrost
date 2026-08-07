@@ -780,7 +780,7 @@ LONG _start(void)
     if (*args == '?')
     {
         Print("Usage: " PROGRAM_NAME " [port] [edge] [NOCAPSLOCK] [KEY=VALUE...] | STATUS | STOP");
-        PrintF("  port       - TCP port (default: %ld, discovery: port+1)", (LONG)Bifrost_DEFAULT_PORT);
+        PrintF("  port       - TCP port fallback if the PC doesn't negotiate one (default: %ld)", (LONG)Bifrost_DEFAULT_PORT);
         Print("  edge       - TOP/BOTTOM/LEFT/RIGHT/TOPLEFT/TOPRIGHT/BOTTOMLEFT/BOTTOMRIGHT");
         Print("               PC edge that switches focus to Amiga (default: none = disabled)");
         Print("  NOCAPSLOCK - disable PC Capslock -> Amiga synchronization (default: enabled)");
@@ -961,7 +961,7 @@ LONG _start(void)
     }
 
     PrintF(PROGRAM_NAME ": daemon started (listening on UDP port %ld)",
-           (LONG)(s_port + 1));
+           (LONG)Bifrost_DISC_PORT);
     {
         // Same printConfigSummary() the "already running" live-update push
         // uses (see above) - one consistent, always-shown line, replacing
