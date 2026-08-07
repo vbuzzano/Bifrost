@@ -135,9 +135,10 @@ class BifrostServer:
         watchdog_t = threading.Thread(target=self._watchdog_loop, daemon=True)
         watchdog_t.start()
 
-        # UDP broadcast so Amiga discovers server without IP config
-        disc_port = self._port + 1
-        discovery.start(disc_port)
+        # UDP broadcast so Amiga discovers server without IP/port config -
+        # discovery.DISC_PORT is fixed, independent of self._port, which is
+        # embedded in the broadcast payload instead (see discovery.py)
+        discovery.start(self._port)
 
         srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -145,7 +146,7 @@ class BifrostServer:
         srv.listen(1)
 
         print(f'[Bifrost] TCP listening on port {self._port}')
-        print(f'[Bifrost] Broadcasting discovery on UDP port {disc_port}')
+        print(f'[Bifrost] Broadcasting discovery on UDP port {discovery.DISC_PORT}')
         print('[Bifrost] Run "Bifrost" on your Amiga (no IP needed)')
         print('[Bifrost] Press Ctrl+C to stop\n')
 
