@@ -1,12 +1,12 @@
 @database Bifrost.guide
 @author "Vincent Buzzano"
-@$VER: ~ 0.5.1 [PROGRAM_VERSION]~
+@$VER: ~ 0.6.0 [PROGRAM_VERSION]~
 
 @node main "Bifrost"
 @next serversetup
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 @{fg highlight}
-                          @{b}Bifrost v~ 0.5.1 [PROGRAM_VERSION]~@{ub}
+                          @{b}Bifrost v~ 0.6.0 [PROGRAM_VERSION]~@{ub}
                     Mouse & Keyboard Sharing over the Network
 @{fg text}
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
@@ -148,7 +148,8 @@ server yet. Once installed, start it from the BifrostServer folder:
 
   Bifrost                  - Connect, no edge switching (Scroll Lock/Pause only)
   Bifrost <edge>           - Connect with an edge/corner switch trigger
-  Bifrost <port>           - Connect on a non-default TCP port
+  Bifrost <port>           - Fallback TCP port, only used if discovery can't
+                             negotiate one (the PC's port is auto-detected)
   Bifrost <edge> <port>    - Both, in any order
   Bifrost NOCAPSLOCK       - Disable PC Capslock -> Amiga sync (default: enabled)
   Bifrost HZ=75 SPEED=1.5  - Mouse tuning args, any order (see below)
@@ -224,11 +225,13 @@ Bifrost never needs to be told the PC's IP address.
 @{b}How it works@{ub}
 
   1. The PC server broadcasts a small UDP packet on the LAN every few
-     seconds, on the discovery port (TCP port + 1, e.g. 7891 if the
-     server's TCP port is 7890).
+     seconds, on a fixed discovery port (7891) - independent of its TCP
+     port, and includes that TCP port in the broadcast.
 
   2. The Amiga client listens for that broadcast, replies directly to
-     the server, and then opens a normal TCP connection to it.
+     the server, parses the TCP port from the packet, and then opens a
+     normal TCP connection to it - no manual port matching needed even
+     if the PC's TCP port isn't the default.
 
   3. From that point on, mouse, keyboard, and focus-switch events flow
      over that one TCP connection.
@@ -355,8 +358,9 @@ Requires Python 3 and the @{b}pynput@{ub} package on the PC.
     @{" Discovery " link discovery}).
   - TCP port 7890 by default, set via @{b}network.port@{ub} in the PC
     server's @{b}bifrost_config.json@{ub} (or overridden with @{b}--port@{ub}
-    for a one-off run). The UDP discovery port is always TCP port + 1
-    (7891 by default) and is not separately configurable.
+    for a one-off run) - the Amiga auto-detects it via discovery, no CLI
+    change needed there. The UDP discovery port itself is fixed (7891)
+    and not separately configurable.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 
@@ -517,8 +521,8 @@ DEALINGS IN THE SOFTWARE.
 @{b}Credits@{ub}
 
   @{b}Author@{ub}:        Vincent Buzzano
-  @{b}Version@{ub}:       ~ 0.5.1 [PROGRAM_VERSION]~
-  @{b}Date@{ub}:          ~ 31.07.2026 [PROGRAM_DATE]~
+  @{b}Version@{ub}:       ~ 0.6.0 [PROGRAM_VERSION]~
+  @{b}Date@{ub}:          ~ 08.08.2026 [PROGRAM_DATE]~
   @{b}Toolchain@{ub}:     VBCC m68k-amigaos compiler (Amiga client), Python 3 (PC server)
 
 @{b}Special Thanks@{ub}:

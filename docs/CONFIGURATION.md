@@ -140,8 +140,8 @@ the Amiga for the full list of arguments and their defaults. See
 
 - `--port` on the command line always overrides `network.port`, for one-off runs without touching the config
 - Invalid values (not an integer, or outside 1-65535) fall back to 7890 with a console warning
-- UDP discovery port is always TCP port + 1 (automatic, not separately configurable)
-- If you change the port, remember to also pass it to the Amiga client: `Bifrost 9999`
+- UDP discovery port is fixed (7891), independent of the TCP port - it stays reachable no matter what TCP port you pick
+- The Amiga auto-detects whatever TCP port you set here via discovery - no need to pass it on the Amiga CLI too (see `docs/PROTOCOL.md`'s Discovery section)
 
 **When to adjust:**
 - Network conflicts (another service on 7890): pass `--port 9999`

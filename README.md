@@ -15,7 +15,7 @@ Bifrost enables seamless mouse and keyboard forwarding from a PC to a AmigaOs 3.
 ✅ **Keyboard Support** - Full keyboard forwarding with toggle capability  
 ✅ **Input Toggle** - Scroll Lock or screen edge trigger to switch PC ↔ Amiga control  
 ✅ **Edge Detection** - Screen edge/corner switching for focus control  
-✅ **Auto-Discovery** - UDP broadcast — no IP configuration needed  
+✅ **Auto-Discovery** - UDP broadcast — no IP or port configuration needed, even if the PC's port isn't the default  
 ✅ **Configurable** - Mouse tuning via Amiga CLI args, everything else via `bifrost_config.json` — no code edits  
 ✅ **Systray Status Icon** - Green icon when Amiga connected, grey when disconnected  
 ✅ **Python Server** - Cross-platform PC side daemon (Windows/Linux/macOS)  
@@ -59,7 +59,7 @@ cd server
 **2. Start server:**
 ```bash
 python main.py                    # Default port 7890 (Windows: .venv\Scripts\python main.py)
-python main.py --port 9999        # Custom port
+python main.py --port 9999        # Custom port (Amiga auto-detects it, no CLI change needed there)
 ```
 
 **2b. (optional) Auto-start at login:**
@@ -84,19 +84,19 @@ Copy Bifrost to SYS:
 
 **4. Launch from CLI:**
 ```bash
-Bifrost [port] [edge]
+Bifrost [edge]
 ```
 
-**Auto-discovery:** Server is found via UDP broadcast on port 7891 (TCP 7890 + 1). No IP needed.
+**Auto-discovery:** Server is found via UDP broadcast on a fixed port (7891). No IP needed, and the TCP port (7890 by default, or whatever `--port` you passed) is negotiated automatically too.
 
 ## Usage
 
 ### Command-Line Arguments (Amiga)
 
 ```bash
-Bifrost                      # Auto-discover, default port (7890)
-Bifrost 9999                 # Custom TCP port (PC must also use 9999)
-Bifrost 9999 TOPRIGHT        # + Edge trigger (top-right corner)
+Bifrost                      # Auto-discover PC and its TCP port, whatever it is
+Bifrost TOPRIGHT             # + Edge trigger (top-right corner)
+Bifrost 9999                 # Fallback TCP port, only used if discovery can't negotiate one
 Bifrost NOCAPSLOCK            # Disable PC Capslock -> Amiga sync (default: enabled)
 Bifrost HZ=75 SPEED=1.5       # Mouse tuning args (see below), any order
 Bifrost STATUS                # Query the running daemon's connection status
@@ -109,8 +109,6 @@ Bifrost ?                     # Print full usage/help
 **Mouse Tuning (`KEY=VALUE`):** `HZ=n` poll rate (default 50) · `HZDRAG=n` poll rate while dragging (default 15) · `SPEED=n` speed, 0.2-3.0 (default 1.0) · `DELTAMAX=n` startup glitch filter (default 80) · `CURVELINEAR=n`/`CURVERATIO=n` acceleration curve shape (defaults 2.0/0.5).
 
 **STATUS / STOP:** Talk to the already-running daemon instead of launching a new one - useful for scripts. Running `Bifrost` again while already active updates its settings live instead of starting a duplicate. Use `STOP` first to actually stop it, or `STATUS` to check.
-
-**⚠️ Port Limitation:** If you change the port on PC, you must also specify it on the Amiga CLI - it isn't auto-detected yet.
 
 ### Configuration
 
@@ -178,10 +176,10 @@ Updates every 0.5 seconds to reflect connection state changes in real-time.
 
 ### Network Protocol
 
-- **Discovery:** UDP broadcast (port 7891 default)
-  - PC broadcasts `Bifrost_DISCOVER`
-  - Amiga replies `Bifrost_HERE` and connects via TCP
-  - No pre-configured IP needed
+- **Discovery:** UDP broadcast (fixed port 7891, independent of the TCP port)
+  - PC broadcasts `Bifrost_DISCOVER:<port>` (its actual TCP port)
+  - Amiga replies `Bifrost_HERE` and connects via TCP to the negotiated port
+  - No pre-configured IP or port needed
 
 - **Data:** TCP/IP with TCP_NODELAY enabled
   - Fixed 8-byte packets with big-endian encoding
@@ -244,7 +242,7 @@ make upload
 | Document | Purpose |
 |----------|---------|
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
-| [ROADMAP.md](ROADMAP.md) | Development roadmap (Phases 2-6) |
+| [ROADMAP.md](ROADMAP.md) | Development roadmap (Phases 3-8) |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | **Full configuration guide** — parameter details, profiles, troubleshooting |
 | [MILESTONES.txt](MILESTONES.txt) | Author's dev-log of internal checkpoints (not a changelog) |
 
@@ -258,4 +256,4 @@ See LICENSE file for details.
 
 **Status:** Ready for production.
 
-**Next:** Per-app profiles, Amiga→PC reverse control, GUI preferences editor — see [ROADMAP.md](ROADMAP.md)
+**Next:** Amiga→PC reverse control, multi-client support (several Amigas on one PC) — see [ROADMAP.md](ROADMAP.md)

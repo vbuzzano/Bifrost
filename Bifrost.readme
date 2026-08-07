@@ -2,10 +2,10 @@ Short:         ~ Amiga Mouse & Keyboard Remote Controller [PROGRAM_DESC_SHORT]~
 Author:        reddoc007@gmail.com (Vincent Buzzano)
 Uploader:      reddoc007@gmail.com (Vincent Buzzano)
 Type:          comm/net
-Version:       ~ 0.5.1 [PROGRAM_VERSION]~
+Version:       ~ 0.6.0 [PROGRAM_VERSION]~
 Architecture:  m68k-amigaos
 
-                                 ~ Bifrost [PROGRAM_NAME]~ v~ 0.5.1 [PROGRAM_VERSION]~
+                                 ~ Bifrost [PROGRAM_NAME]~ v~ 0.6.0 [PROGRAM_VERSION]~
 
 -----------------------------------------------------------------------------
 
@@ -126,6 +126,14 @@ automatically.
 
 VERSION HISTORY
 
+
+0.6.0 (08.08.2026)
+
+Auto-negotiated TCP port: the PC embeds its actual TCP listening port in
+the UDP discovery broadcast and the Amiga connects to it automatically.
+No more manually passing a matching port on both sides when the PC's
+port isn't the default. The UDP discovery port itself is now fixed
+(7891), independent of the TCP port, so it stays reachable regardless.
 
 0.5.1 (31.07.2026)
 

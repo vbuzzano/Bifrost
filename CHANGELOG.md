@@ -2,6 +2,16 @@
 
 All notable changes to Bifrost are documented in this file.
 
+## [0.6.0] - 2026-08-03
+
+### Added
+- Auto-negotiated TCP port: the PC embeds its actual TCP listening port in
+  the UDP discovery broadcast (`Bifrost_DISCOVER:<port>`) and the Amiga
+  connects to it automatically. No more manually passing a matching port
+  on both sides when the PC's port isn't the default. The UDP discovery
+  port itself is now fixed (7891), independent of the TCP port, so it
+  stays reachable regardless. Completes Phase 2 of the roadmap.
+
 ## [0.5.1] - 2026-07-31
 
 ### Fixed

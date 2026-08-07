@@ -18,14 +18,21 @@ negotiation, just two hand-written implementations of the same layout.
 
 | Message | Direction | Bytes | Content |
 |---|---|---|---|
-| `Bifrost_DISCOVER` | PC → subnet broadcast | 16 | ASCII literal |
+| `Bifrost_DISCOVER:<port>` | PC → subnet broadcast | 17+ | ASCII literal + `:` + decimal TCP port |
 | `Bifrost_HERE` | Amiga → PC | 12 | ASCII literal |
 
-1. The PC broadcasts `Bifrost_DISCOVER` to its subnet's broadcast address
-   every 3 seconds, on **UDP port = TCP port + 1** (default `7891`).
-2. The Amiga listens on that UDP port; on receiving `Bifrost_DISCOVER`, it
-   replies `Bifrost_HERE` to the sender and then opens a normal TCP
-   connection to the PC's TCP port.
+1. The PC broadcasts `Bifrost_DISCOVER:<port>` (its actual TCP listening
+   port, e.g. `Bifrost_DISCOVER:7890`) to its subnet's broadcast address
+   every 3 seconds, on a **fixed UDP port** (`DISC_PORT` /
+   `Bifrost_DISC_PORT`, default `7891`) - independent of the TCP port, so
+   discovery stays reachable even if the TCP port changes.
+2. The Amiga listens on that fixed UDP port; on receiving a message with
+   the `Bifrost_DISCOVER` prefix, it replies `Bifrost_HERE` to the sender,
+   parses the port after the first `:`, and opens a TCP connection to the
+   PC on that port. If the payload carries no valid port (e.g. an older PC
+   build sending the bare literal), it falls back to the Amiga's own
+   CLI-configurable `s_port` (default `Bifrost_DEFAULT_PORT`, `7890`) -
+   in that case the port must still be matched manually on both sides.
 3. Only one Amiga connection is accepted at a time; a new connection
    replaces the previous one (see `tcp_server.py`'s `run()`).
 
@@ -201,7 +208,7 @@ pressed).
 ```
 PC                                    Amiga
 --                                    -----
-broadcast Bifrost_DISCOVER (UDP) -->
+broadcast Bifrost_DISCOVER:<port> -->
                                   <--  reply Bifrost_HERE (UDP)
                                   <--  TCP connect
                                   <--  PKT_HELLO (initial edge config)
