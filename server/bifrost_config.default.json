@@ -12,6 +12,6 @@
   "debug": {
     "enabled": false,
     "log_mouse": false,
-    "log_keys": true
+    "log_keys": false
   }
 }
