@@ -1,6 +1,5 @@
 /*
  * Bifrost - Public IPC API for control port messaging
- * v~ 0.6.0 [PROGRAM_VERSION]~ (~ 08.08.2026 [PROGRAM_DATE]~)
  *
  * Third-party tools (BifrostCX, scripts) use this to communicate with
  * the Bifrost daemon via the Amiga message port.

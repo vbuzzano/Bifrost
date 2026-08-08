@@ -1,6 +1,5 @@
 /*
  * Bifrost - background daemon
- * v~ 0.6.0 [PROGRAM_VERSION]~ (~ 08.08.2026 [PROGRAM_DATE]~)
  *
  * Spawned by main.c's _start() via CreateNewProcTags as a detached
  * background Process. Shares the running program's global data segment

@@ -1,6 +1,5 @@
 /*
  * Bifrost - Amiga Mouse and Keyboard Controller (CLI entry point)
- * v~ 0.6.0 [PROGRAM_VERSION]~ (~ 08.08.2026 [PROGRAM_DATE]~)
  *
  * Parses CLI args (edge, or STATUS/STOP to control an already-running
  * instance), then launches daemon.c's daemon() as a detached background
