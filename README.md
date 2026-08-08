@@ -247,7 +247,7 @@ make upload
 
 ## License
 
-Copyright (c) 2025 Vincent Buzzano (ReddoC)
+Copyright (c) 2026 Vincent Buzzano (ReddoC)
 
 See LICENSE file for details.
 
