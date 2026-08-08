@@ -49,7 +49,7 @@ def _load_config():
         'network': {'port': 7890},
         'keys': {'toggle': 'scroll_lock', 'emergency': 'pause', 'kill_modifier': 'ctrl',
                   'right_amiga': 'windows'},
-        'debug': {'enabled': False, 'log_mouse': False, 'log_keys': True}
+        'debug': {'enabled': False, 'log_mouse': False, 'log_keys': False}
     }
 
     try:

@@ -110,9 +110,9 @@ the Amiga for the full list of arguments and their defaults. See
 
 ### `debug.log_keys` (Key Sends)
 
-**Default:** `true`
+**Default:** `false`
 
-**What it does:** Print every key event actually sent to the Amiga (`[key] ...` lines) - key, Amiga rawkey code, and qualifier byte. Low-frequency; left on by default since it's the primary tool for diagnosing keymap/qualifier issues.
+**What it does:** Print every key event actually sent to the Amiga (`[key] ...` lines) - key, Amiga rawkey code, and qualifier byte. Off by default like the other debug flags; turn on when diagnosing keymap/qualifier issues.
 
 **Example output:**
 ```
