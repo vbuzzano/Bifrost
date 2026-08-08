@@ -1,5 +1,6 @@
 """
 Bifrost Protocol - 8-byte binary packet encoding.
+v~ 0.6.0 [PROGRAM_VERSION]~ (~ 08.08.2026 [PROGRAM_DATE]~)
 
 Packet layout (big-endian):
   [0]   type:  PKT_MOUSE_MOVE | PKT_MOUSE_BTN | PKT_KEY | PKT_WHEEL | PKT_HELLO | PKT_EDGE_TRIGGER | PKT_FOCUS_ENTER | PKT_CLIENT_STATE | PKT_HEARTBEAT

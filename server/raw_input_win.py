@@ -1,5 +1,6 @@
 """
 Bifrost Raw Input - Windows-only exclusive mouse capture via WM_INPUT.
+v~ 0.6.0 [PROGRAM_VERSION]~ (~ 08.08.2026 [PROGRAM_DATE]~)
 
 Uses RIDEV_INPUTSINK | RIDEV_NOLEGACY which:
   - Receives ALL hardware mouse input (even when not foreground)

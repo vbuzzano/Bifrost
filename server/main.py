@@ -36,6 +36,14 @@ except ImportError as e:
     print(f'[WARN] Systray disabled - missing dependency: {e}')
     print('[WARN] Run "pip install -r requirements.txt" to enable the systray icon')
 
+# ---> BEGIN GENERATED PROGRAM_CONSTANTS
+PROGRAM_NAME = "Bifrost"
+PROGRAM_VERSION = "0.6.0"
+PROGRAM_DATE = "08.08.2026"
+PROGRAM_AUTHOR = "Vincent Buzzano"
+PROGRAM_DESC_SHORT = "Amiga Mouse & Keyboard Remote Controller"
+# <--- END GENERATED PROGRAM CONSTANTS
+
 _instance_mutex = None  # keeps the Windows mutex handle alive for the process lifetime
 
 
@@ -108,6 +116,8 @@ class _SystrayController:
 
     def _menu_for(self, state: str) -> 'Menu':
         return Menu(
+            MenuItem(f"{PROGRAM_NAME} Server v{PROGRAM_VERSION}", lambda: None, enabled=False),
+            Menu.SEPARATOR,
             MenuItem(_SYSTRAY_LABELS[state], lambda: None, enabled=False),
             MenuItem("Quit", self._quit)
         )
@@ -168,6 +178,10 @@ def _resolve_port(cli_port: 'int | None') -> int:
 
 
 def main() -> None:
+    print(f'{PROGRAM_NAME} Server v{PROGRAM_VERSION} ({PROGRAM_DATE})')
+    print(f'{PROGRAM_DESC_SHORT} - (c) {PROGRAM_AUTHOR}')
+    print()
+
     if not _acquire_single_instance_lock():
         print('[Bifrost] Another instance is already running - exiting.')
         sys.exit(1)

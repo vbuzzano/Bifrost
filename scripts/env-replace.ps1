@@ -119,6 +119,19 @@ foreach ($file in $files) {
         $text = [regex]::Replace($text, $pattern, $replace)
     }
 
+    # Replace Python "VAR_ENV_NAME = ..." assignments - same always-current,
+    # no-marker-preserved behavior as #define above. Unlike the ~[VAR]~ tag
+    # (meant for static docs where source and shipped copy can legitimately
+    # differ), this is for files executed directly from the source tree
+    # (e.g. server/main.py run as `python main.py`), which must never show
+    # an unresolved marker at runtime.
+    foreach ($k in $envVars.Keys) {
+        $pattern = "(?m)^([ \t]*)$k([ \t]*=[ \t]*).*$"
+        $v = $envVars[$k]
+        $replace = ('$1' + $k + '$2"' + $v + '"')
+        $text = [regex]::Replace($text, $pattern, $replace)
+    }
+
     # Handle Markdown tags []($VAR)val[]()
     # Regex: \[\]\(\$(\w+)\)(.*?)\[\]\(\)
     $text = [regex]::Replace($text, '\[\]\(\$(\w+)\)(.*?)\[\]\(\)', {

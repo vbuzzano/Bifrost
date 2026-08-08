@@ -1,12 +1,13 @@
 /*
  * Bifrost - Amiga Mouse and Keyboard Controller (CLI entry point)
+ * v~ 0.6.0 [PROGRAM_VERSION]~ (~ 08.08.2026 [PROGRAM_DATE]~)
  *
- * Parses CLI args (port/edge, or STATUS/STOP to control an already-running
- * instance), then launches main.c's daemon() as a detached background
- * process. See main.c for the actual UDP discovery / TCP connection /
+ * Parses CLI args (edge, or STATUS/STOP to control an already-running
+ * instance), then launches daemon.c's daemon() as a detached background
+ * process. See daemon.c for the actual UDP discovery / TCP connection /
  * event injection loop.
  *
- * Usage: Bifrost [port] [edge] | STATUS | STOP
+ * Usage: Bifrost [edge] | STATUS | STOP
  *
  * (c) 2026 Vincent Buzzano - MIT License
  */

@@ -55,6 +55,12 @@ if (Get-ChildItem -Path "." -Filter "*.md" -File -ErrorAction SilentlyContinue) 
 # SOURCE: update #define constants from .env
 . $EnvReplace  -Recurse -Force -Path ".\src"
 
+# PC SERVER: refresh main.py's generated constants block (no marker - a
+# plain value, since it's executed directly as `python main.py`) and the
+# ~[VAR]~ version stamp in every other server/*.py file's docstring header
+# (safe as a marker there - never executed, just documentation)
+. $EnvReplace -Force -Path "server\*.py"
+
 # PROGRAM: clean dist/ and rebuild release binary
 make MODE=release rebuild
 

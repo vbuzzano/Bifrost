@@ -2,6 +2,7 @@
  * Bifrost - shared declarations between main.c (CLI entry point) and
  * daemon.c (background daemon: discovery, TCP connection, event
  * injection). See daemon.c's file header for the daemon architecture.
+ * v~ 0.6.0 [PROGRAM_VERSION]~ (~ 08.08.2026 [PROGRAM_DATE]~)
  *
  * (c) 2026 Vincent Buzzano - MIT License
  */
