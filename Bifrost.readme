@@ -96,7 +96,8 @@ config is required for a default setup. See README.md in the .zip for
 auto-start-at-login instructions.
 
 
-~ Bifrost [PROGRAM_NAME]~ (Amiga side) can be installed using the included Installer script or manually.
+~ Bifrost [PROGRAM_NAME]~ (Amiga side) can be installed using the included Installer script 
+or manually.
 
 
 == Method 1: Amiga Installer (Recommended) ==
