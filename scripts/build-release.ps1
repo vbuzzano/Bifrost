@@ -108,6 +108,15 @@ New-Item -ItemType Directory -Path "$FullZipDir\BifrostServer" -Force -ErrorActi
 Copy-Item -Force "$env:DIST_DIR\$ReleaseDir.lha" "$FullZipDir\"
 Copy-Item -Force "README.md" "$FullZipDir\"
 Copy-Item -Force "server\*.py" "$FullZipDir\BifrostServer\" -Exclude "test_*.py"
+
+# Resolve the ~value[VAR]~ version-stamp markers in the just-copied .py
+# docstrings - the in-place pass above (server\*.py) intentionally
+# preserves markers so the source tree can re-stamp next release, but that
+# means the raw marker syntax would otherwise ship as-is to end users who
+# open these files. Path == OutputDir here so this resolves in place on
+# the shipped copies only, leaving the source tree untouched.
+. $EnvReplace -Force -OutputDir "$FullZipDir\BifrostServer" -Path "$FullZipDir\BifrostServer\*.py"
+
 Copy-Item -Force "server\requirements.txt", `
                   "server\setup_venv.ps1", "server\setup_venv.sh", `
                   "server\start_bifrost.bat", "server\start_bifrost.sh", "server\start_bifrost.vbs", `
