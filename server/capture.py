@@ -132,10 +132,10 @@ KILL_MODIFIER_MASK = _get_modifier_mask(_CONFIG['keys']['kill_modifier'], 'ctrl'
 RIGHT_AMIGA_SOURCE = _get_right_amiga_source(_CONFIG['keys'].get('right_amiga', 'windows'))
 set_right_amiga_source(use_ctrl=(RIGHT_AMIGA_SOURCE == 'ctrl'))
 DEBUG     = _CONFIG['debug']['enabled']
-# Sub-levels under DEBUG - mouse motion logs are high-frequency/noisy and
-# off by default; key-send logs are low-frequency and on by default.
+# Sub-levels under DEBUG - both off by default; turn on individually when
+# diagnosing mouse acceleration/edge-trigger or keymap/qualifier issues.
 LOG_MOUSE = DEBUG and bool(_CONFIG['debug'].get('log_mouse', False))
-LOG_KEYS  = DEBUG and bool(_CONFIG['debug'].get('log_keys', True))
+LOG_KEYS  = DEBUG and bool(_CONFIG['debug'].get('log_keys', False))
 
 # Mouse-tuning values - owned by the Amiga daemon, received via PKT_HELLO.
 # None until the first PKT_HELLO arrives; capture.py must not act on Amiga

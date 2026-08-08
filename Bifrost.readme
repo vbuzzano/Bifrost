@@ -121,7 +121,7 @@ automatically.
    C:~ Bifrost [PROGRAM_NAME]~ >NIL:
    # END ~ Bifrost [PROGRAM_NAME]~
    ```
-4. Restart or run `~ Bifrost [PROGRAM_NAME]~` manually
+3. Restart or run `~ Bifrost [PROGRAM_NAME]~` manually
 
 -----------------------------------------------------------------------------
 
