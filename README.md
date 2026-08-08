@@ -96,7 +96,6 @@ Bifrost [edge]
 ```bash
 Bifrost                      # Auto-discover PC and its TCP port, whatever it is
 Bifrost TOPRIGHT             # + Edge trigger (top-right corner)
-Bifrost 9999                 # Fallback TCP port, only used if discovery can't negotiate one
 Bifrost NOCAPSLOCK            # Disable PC Capslock -> Amiga sync (default: enabled)
 Bifrost HZ=75 SPEED=1.5       # Mouse tuning args (see below), any order
 Bifrost STATUS                # Query the running daemon's connection status

@@ -178,7 +178,7 @@ effort, scheduled opportunistically rather than tied to a release number.
 
 ---
 
-## Backlog / Future Exploration
+## Future Exploration
 
 - Multi-screen support (Workbench + RTG screens)
 - Clipboard forwarding (text copy/paste)
@@ -198,6 +198,16 @@ effort, scheduled opportunistically rather than tied to a release number.
   Amiga's `Bifrost_HERE` reply as originally planned - the Amiga can't
   parse a port it needs before it even receives a packet, so the PC's
   broadcast (`Bifrost_DISCOVER:<port>`) had to carry it instead
+- **v0.6.0**: Removed the Amiga-side TCP port entirely (CLI argument,
+  `s_port`, `BifrostConfig.port`/`GET_CONFIG`) rather than keep it as a
+  fallback - the port suffix in the discovery broadcast is mandatory now,
+  not optional. On analysis it protected nothing real: it never tracked
+  the actually-negotiated port (a plain local variable in `daemon.c`), it
+  couldn't select between multiple PC servers (no filtering by port in
+  the discovery loop), and its only fallback case (a discovery packet
+  missing the port suffix) can't happen since PC and Amiga always ship
+  together with no backward-compat requirement. Kept it would have been
+  dead weight for a niche, beta tool - KISS won.
 - **Phase 3**: Reverse channel deferred pending Phase 2 completion (current suppression model works)
 - **Phase 4**: Multi-client scoped as a refactor of already-isolated
   per-connection logic (`capture.py`/`tcp_server.py`) into a reusable

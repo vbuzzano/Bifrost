@@ -20,17 +20,18 @@
 // Changing port name breaks compatibility with third-party tools/scripts.
 #define Bifrost_PORT_NAME   "Bifrost_Port" // WARNING: Modify with caution!
 
-#define Bifrost_DEFAULT_PORT 7890
-#define Bifrost_DISC_PORT    7891    // UDP discovery port - fixed, independent
-                                      // of the TCP port, which is negotiated
-                                      // via the discovery payload instead
+#define Bifrost_DISC_PORT    7891    // UDP discovery port - fixed. The TCP
+                                      // port is negotiated via the discovery
+                                      // payload every connection; Bifrost has
+                                      // no CLI/config notion of "the" TCP
+                                      // port anymore, so there's no default
+                                      // to name here
 
 
 #define BMSG_CMD_QUIT        0   // Stop daemon (disconnects from PC first)
 #define BMSG_CMD_GET_STATUS  1   // Query connection status
-#define BMSG_CMD_GET_CONFIG  2   // Read current port/edge/client-enabled
-#define BMSG_CMD_SET_CONFIG  3   // Apply new edge/client-enabled (port ignored -
-                                 // immutable at runtime, needs a restart)
+#define BMSG_CMD_GET_CONFIG  2   // Read current edge/client-enabled/mouse-tuning
+#define BMSG_CMD_SET_CONFIG  3   // Apply new edge/client-enabled/mouse-tuning
 
 #define CONTROL_REPLY_TIMEOUT 2  // seconds to wait for daemon reply
 
@@ -43,12 +44,11 @@
 #define EDGE_RIGHT      0x08
 
 // Configurable daemon state. GET_CONFIG copies the daemon's current values
-// into this; SET_CONFIG's setConfig() (daemon.c) applies every field
-// except port. New settings land here, not as new BMSG_CMD_* values or new
-// CLI arguments - see design spec for the rationale.
+// into this; SET_CONFIG's setConfig() (daemon.c) applies every field. New
+// settings land here, not as new BMSG_CMD_* values or new CLI arguments -
+// see design spec for the rationale.
 struct BifrostConfig
 {
-    ULONG port;       // informational on GET_CONFIG; ignored by setConfig()
     UBYTE pcEdge;      // live-updatable
     BOOL  clientEnabled;   // live-updatable
     BOOL  capslockEnabled; // live-updatable; also settable via CLI NOCAPSLOCK

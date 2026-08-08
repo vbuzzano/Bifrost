@@ -8,8 +8,9 @@
  *
  * Outer loop: wait for Bifrost_DISCOVER broadcast on UDP port
  *   (Bifrost_DISC_PORT, fixed), reply Bifrost_HERE, then TCP connect to
- *   sender on the port negotiated from the broadcast payload (falls back
- *   to s_port if the payload carries none).
+ *   sender on the port carried in the broadcast payload - the PC always
+ *   includes it, there's no CLI/config port on the Amiga side to fall
+ *   back to (no backward-compat requirement between PC/Amiga versions).
  * Inner loop: recv 8-byte packets and inject events into input.device.
  *   On disconnect: close TCP, go back to outer UDP discovery loop.
  *   CTRL+C, or a "Bifrost STOP" from the control port: exit both loops
@@ -730,10 +731,7 @@ static void sendHelloPacket(LONG sock)
 
 //===========================================================================
 // setConfig - Apply a BifrostConfig sent via BMSG_CMD_SET_CONFIG. Updates
-// everything except cfg->port (immutable at runtime - a port change needs
-// a restart, reported by the caller comparing cfg->port against the
-// GET_CONFIG it read first; setConfig() itself doesn't need to know or
-// care whether the port matched). Re-sends PKT_HELLO/PKT_CLIENT_STATE to
+// every field. Re-sends PKT_HELLO/PKT_CLIENT_STATE to
 // an already-connected server when any of its 7 fields (edge + mouse
 // tuning) or clientEnabled actually change - otherwise a live BifrostCX
 // edge/enable change while connected would never reach the server until
@@ -842,7 +840,6 @@ static void processControlMessages(BOOL *quitFlag)
                 break;
 
             case BMSG_CMD_GET_CONFIG:
-                ctlMsg->config.port      = s_port;
                 ctlMsg->config.pcEdge    = s_pcEdge;
                 ctlMsg->config.clientEnabled   = s_clientEnabled;
                 ctlMsg->config.capslockEnabled = s_capslockEnabled;
@@ -856,16 +853,8 @@ static void processControlMessages(BOOL *quitFlag)
                 break;
 
             case BMSG_CMD_SET_CONFIG:
-                // result: 0 if the caller's port matched what's actually
-                // running (or the caller didn't care), 1 if it differs -
-                // config is still applied either way (port itself is
-                // never touched by setConfig()), a restart is only needed
-                // to change the port. Callers that care about the actual
-                // running port should GET_CONFIG first and compare
-                // themselves - this result is just a convenience so a
-                // plain CLI relaunch doesn't need a separate round-trip.
-                ctlMsg->result = (ctlMsg->config.port == s_port) ? 0 : 1;
                 setConfig(&ctlMsg->config);
+                ctlMsg->result = 0;
                 break;
 
             default:
@@ -986,7 +975,11 @@ void daemon(void)
         }
         buf[rc] = 0;
 
-        // Validate message == "Bifrost_DISCOVER"
+        // Validate message == "Bifrost_DISCOVER:<port>" - the port suffix is
+        // mandatory, not a fallback: the PC always includes it (see
+        // server/discovery.py), and there's no CLI/config port on the Amiga
+        // side to fall back to (no backward-compat requirement between
+        // PC/Amiga versions - see ROADMAP.md's Decision Log).
         {
             BOOL ok = TRUE;
             if (rc < DISC_MSG_LEN) ok = FALSE;
@@ -996,6 +989,23 @@ void daemon(void)
                 {
                     if (buf[i] != (UBYTE)DISC_MSG[i]) { ok = FALSE; break; }
                 }
+            }
+            negotiatedPort = 0;
+            if (ok)
+            {
+                ok = (rc > DISC_MSG_LEN && buf[DISC_MSG_LEN] == ':');
+            }
+            if (ok)
+            {
+                LONG j = DISC_MSG_LEN + 1;
+                LONG digits = 0;
+                while (j < rc && digits < 5 && buf[j] >= '0' && buf[j] <= '9')
+                {
+                    negotiatedPort = negotiatedPort * 10 + (buf[j] - '0');
+                    j++;
+                    digits++;
+                }
+                ok = (negotiatedPort > 0 && negotiatedPort < 65536);
             }
             if (!ok)
             {
@@ -1007,30 +1017,6 @@ void daemon(void)
         // Reply Bifrost_HERE to the server
         sendto(udpSock, (APTR)DISC_REPLY, DISC_REPLY_LEN, 0,
                (struct sockaddr *)&fromSa, (LONG)sizeof(fromSa));
-
-        // Parse an optional ":<port>" suffix after the fixed prefix - the PC
-        // embeds its actual TCP listening port here (see
-        // server/discovery.py) so both sides no longer need a matching port
-        // configured by hand. Falls back to s_port (CLI-configurable,
-        // Bifrost_DEFAULT_PORT otherwise) if absent/malformed, e.g. a
-        // discovery packet from an older PC build.
-        negotiatedPort = (LONG)s_port;
-        if (rc > DISC_MSG_LEN && buf[DISC_MSG_LEN] == ':')
-        {
-            LONG parsedPort = 0;
-            LONG j = DISC_MSG_LEN + 1;
-            LONG digits = 0;
-            while (j < rc && digits < 5 && buf[j] >= '0' && buf[j] <= '9')
-            {
-                parsedPort = parsedPort * 10 + (buf[j] - '0');
-                j++;
-                digits++;
-            }
-            if (parsedPort > 0 && parsedPort < 65536)
-            {
-                negotiatedPort = parsedPort;
-            }
-        }
 
         // TCP connect to server (same IP, negotiated TCP port)
         tcpSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);

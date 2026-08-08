@@ -27,12 +27,13 @@ negotiation, just two hand-written implementations of the same layout.
    `Bifrost_DISC_PORT`, default `7891`) - independent of the TCP port, so
    discovery stays reachable even if the TCP port changes.
 2. The Amiga listens on that fixed UDP port; on receiving a message with
-   the `Bifrost_DISCOVER` prefix, it replies `Bifrost_HERE` to the sender,
-   parses the port after the first `:`, and opens a TCP connection to the
-   PC on that port. If the payload carries no valid port (e.g. an older PC
-   build sending the bare literal), it falls back to the Amiga's own
-   CLI-configurable `s_port` (default `Bifrost_DEFAULT_PORT`, `7890`) -
-   in that case the port must still be matched manually on both sides.
+   the `Bifrost_DISCOVER` prefix, it parses the mandatory port after the
+   first `:`, replies `Bifrost_HERE` to the sender, and opens a TCP
+   connection to the PC on that port. The port suffix isn't optional - a
+   packet without one is treated as invalid and ignored, same as a
+   malformed prefix. There's no CLI/config port on the Amiga side to fall
+   back to (PC and Amiga are always released together, so there's no
+   older-build case to handle).
 3. Only one Amiga connection is accepted at a time; a new connection
    replaces the previous one (see `tcp_server.py`'s `run()`).
 

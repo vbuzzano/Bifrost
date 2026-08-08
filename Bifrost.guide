@@ -148,18 +148,14 @@ server yet. Once installed, start it from the BifrostServer folder:
 
   Bifrost                  - Connect, no edge switching (Scroll Lock/Pause only)
   Bifrost <edge>           - Connect with an edge/corner switch trigger
-  Bifrost <port>           - Fallback TCP port, only used if discovery can't
-                             negotiate one (the PC's port is auto-detected)
-  Bifrost <edge> <port>    - Both, in any order
   Bifrost NOCAPSLOCK       - Disable PC Capslock -> Amiga sync (default: enabled)
   Bifrost HZ=75 SPEED=1.5  - Mouse tuning args, any order (see below)
   Bifrost STATUS           - Query the running daemon's connection status
   Bifrost STOP             - Disconnect and quit the running daemon
   Bifrost ?                - Print full usage/help
 
-Tokens are recognised automatically: a number is always the port, a
-recognised keyword is always the edge - so @{b}Bifrost LEFT 7890@{ub} and
-@{b}Bifrost 7890 LEFT@{ub} do exactly the same thing. See
+There's no port argument - the PC's TCP port is always auto-detected via
+discovery, nothing to type on the Amiga side. See
 @{" Edge Switching " link edgeswitching} for the full list of edge/corner
 keywords.
 

@@ -12,6 +12,14 @@ All notable changes to Bifrost are documented in this file.
   port itself is now fixed (7891), independent of the TCP port, so it
   stays reachable regardless. Completes Phase 2 of the roadmap.
 
+### Removed
+- The Amiga-side TCP port CLI argument (`Bifrost <port>`) and the `port`
+  field of the `BifrostConfig` IPC struct (`GET_CONFIG`/`SET_CONFIG`) - the
+  discovery broadcast's port suffix is mandatory now, not a value with a
+  manual fallback. **Breaking change for third-party tools (BifrostCX)**
+  that read `port` from `GET_CONFIG` or pass a port to `launchBifrost()` -
+  the field no longer exists.
+
 ## [0.5.1] - 2026-07-31
 
 ### Fixed

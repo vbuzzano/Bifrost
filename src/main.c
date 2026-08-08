@@ -33,7 +33,6 @@ struct DosLibrary *DOSBase;
 
 // Shared with main.c (see bifrost.h's "extern" declarations) - set here
 // from CLI args, read by daemon() once launched via CreateNewProcTags.
-ULONG s_port       = Bifrost_DEFAULT_PORT;
 UBYTE s_pcEdge      = EDGE_NONE;
 UBYTE s_amigaEdge   = EDGE_NONE;
 BOOL  s_capslockEnabled = TRUE;  // FALSE via CLI "NOCAPSLOCK"
@@ -375,12 +374,11 @@ static void printConfigSummary(const struct BifrostConfig *cfg, const char *labe
 }
 
 //===========================================================================
-// parseArguments - Parse whitespace-separated CLI tokens (numeric port, an
-// edge keyword, NOCAPSLOCK, and/or KEY=VALUE / KEY VALUE mouse-tuning
-// tokens), any order and any count. Sets s_port/s_pcEdge/s_capslockEnabled/
-// s_mouseHz/etc directly and the matching s_got* flag for each one
-// actually specified (see their declaration comment), then validates
-// HZDRAG<=HZ once all tokens are in.
+// parseArguments - Parse whitespace-separated CLI tokens (an edge keyword,
+// NOCAPSLOCK, and/or KEY=VALUE / KEY VALUE mouse-tuning tokens), any order
+// and any count. Sets s_pcEdge/s_capslockEnabled/s_mouseHz/etc directly and
+// the matching s_got* flag for each one actually specified (see their
+// declaration comment), then validates HZDRAG<=HZ once all tokens are in.
 //
 // Mirrors XMouseD's parseArguments() naming/shape (see saga-xmouse/src/
 // xmoused.c), adapted for Bifrost's much larger argument set - XMouseD's
@@ -390,9 +388,6 @@ static void printConfigSummary(const struct BifrostConfig *cfg, const char *labe
 
 static void parseArguments(UBYTE *args)
 {
-    LONG i;
-    LONG portNum;
-
     while (TRUE)
     {
         while (*args == ' ' || *args == '\t')
@@ -404,22 +399,6 @@ static void parseArguments(UBYTE *args)
             break;
         }
 
-        if (*args >= '0' && *args <= '9')
-        {
-            portNum = 0;
-            i = 0;
-            while (*args >= '0' && *args <= '9' && i < 5)
-            {
-                portNum = portNum * 10 + (*args - '0');
-                args++;
-                i++;
-            }
-            if (portNum > 0 && portNum < 65536)
-            {
-                s_port = (ULONG)portNum;
-            }
-        }
-        else
         {
             UBYTE edgeMask;
             LONG  edgeLen;
@@ -779,8 +758,7 @@ LONG _start(void)
     // Show usage on '?'
     if (*args == '?')
     {
-        Print("Usage: " PROGRAM_NAME " [port] [edge] [NOCAPSLOCK] [KEY=VALUE...] | STATUS | STOP");
-        PrintF("  port       - TCP port fallback if the PC doesn't negotiate one (default: %ld)", (LONG)Bifrost_DEFAULT_PORT);
+        Print("Usage: " PROGRAM_NAME " [edge] [NOCAPSLOCK] [KEY=VALUE...] | STATUS | STOP");
         Print("  edge       - TOP/BOTTOM/LEFT/RIGHT/TOPLEFT/TOPRIGHT/BOTTOMLEFT/BOTTOMRIGHT");
         Print("               PC edge that switches focus to Amiga (default: none = disabled)");
         Print("  NOCAPSLOCK - disable PC Capslock -> Amiga synchronization (default: enabled)");
@@ -855,7 +833,7 @@ LONG _start(void)
         }
     }
 
-    // Parse port/edge/NOCAPSLOCK/KEY=VALUE tokens - see parseArguments()
+    // Parse edge/NOCAPSLOCK/KEY=VALUE tokens - see parseArguments()
     // for the full token grammar and the s_got* flags it sets.
     parseArguments(args);
 
@@ -885,16 +863,7 @@ LONG _start(void)
             return RETURN_FAIL;
         }
 
-        if (cfg.port != s_port)
-        {
-            Print(PROGRAM_NAME ": already running on a different port - STOP it first, then relaunch");
-            CloseLibrary((struct Library *)DOSBase);
-            return RETURN_WARN;
-        }
-        else
-        {
-            PrintF(PROGRAM_NAME ": already running on port %ld", (LONG)s_port);
-        }
+        Print(PROGRAM_NAME ": already running - updating live settings");
 
         // Only overwrite fields this invocation's CLI actually specified -
         // cfg already holds the daemon's current live values from
@@ -971,7 +940,6 @@ LONG _start(void)
         // (only ever set live via BifrostCX) - TRUE here just matches
         // daemon.c's own compile-time default for a fresh daemon.
         struct BifrostConfig startCfg;
-        startCfg.port            = s_port;
         startCfg.pcEdge           = s_pcEdge;
         startCfg.clientEnabled    = TRUE;
         startCfg.capslockEnabled  = s_capslockEnabled;
