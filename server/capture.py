@@ -1,6 +1,6 @@
 """
 Bifrost capture - global mouse/keyboard hooks with focus management.
-v~ 0.6.0 [PROGRAM_VERSION]~ (~ 08.08.2026 [PROGRAM_DATE]~)
+v~ 0.6.1 [PROGRAM_VERSION]~ (~ 16.08.2026 [PROGRAM_DATE]~)
 
 Focus modes:
   PC    - normal, input goes to PC only

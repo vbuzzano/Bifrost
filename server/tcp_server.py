@@ -1,6 +1,6 @@
 """
 Bifrost TCP server - waits for Amiga client connection, forwards captured events.
-v~ 0.6.0 [PROGRAM_VERSION]~ (~ 08.08.2026 [PROGRAM_DATE]~)
+v~ 0.6.1 [PROGRAM_VERSION]~ (~ 16.08.2026 [PROGRAM_DATE]~)
 
 One client at a time. Reconnect is automatic when Amiga re-runs Bifrost.
 """
