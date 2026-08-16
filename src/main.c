@@ -35,9 +35,9 @@ struct DosLibrary *DOSBase;
 // from CLI args, read by daemon() once launched via CreateNewProcTags.
 UBYTE s_pcEdge      = EDGE_NONE;
 UBYTE s_amigaEdge   = EDGE_NONE;
-BOOL  s_capslockEnabled = TRUE;  // FALSE via CLI "NOCAPSLOCK"
+UBYTE s_capslockMode    = CAPSLOCK_AUTO;  // CLI CAPSLOCK=NO|YES|AUTO
 UBYTE s_mouseHz         = 50;
-UBYTE s_mouseHzDrag     = 15;
+UBYTE s_mouseHzDrag     = 50;   // defaults to s_mouseHz - see parseArguments()
 UBYTE s_mouseSpeed      = 10;   // x10 fixed-point: 1.0
 UBYTE s_mouseDeltaMax   = 80;
 UBYTE s_curveLinear     = 20;   // x10 fixed-point: 2.0
@@ -500,6 +500,19 @@ static void parseArguments(UBYTE *args)
         }
     }
 
+    // HZDRAG defaults to HZ (not a separate lower rate) when not typed
+    // explicitly - the lower default only helped apps using opaque drag
+    // (MCP-style, e.g. Workbench icon dragging), which most software
+    // doesn't use, so throttling drag by default punished the common case
+    // for a minority workaround. Only touches the fresh-launch path (this
+    // still leaves s_gotHzDrag FALSE, so a live relaunch that doesn't
+    // retype HZDRAG still preserves whatever the running daemon already
+    // has - see the "already running" merge in _start()).
+    if (!s_gotHzDrag)
+    {
+        s_mouseHzDrag = s_mouseHz;
+    }
+
     // HZDRAG must not exceed HZ - clamp after all tokens are parsed so the
     // check is independent of argument order (HZDRAG=30 HZ=20 must clamp
     // the same as HZ=20 HZDRAG=30).
@@ -763,7 +776,7 @@ LONG _start(void)
         Print("               PC edge that switches focus to Amiga (default: none = disabled)");
         Print("  NOCAPSLOCK - disable PC Capslock -> Amiga synchronization (default: enabled)");
         Print("  HZ=n          - mouse poll rate, Hz (default: 50)");
-        Print("  HZDRAG=n      - mouse poll rate while dragging, Hz (default: 15, clamped <= HZ)");
+        Print("  HZDRAG=n      - mouse poll rate while dragging, Hz (default: same as HZ, clamped <= HZ)");
         Print("  SPEED=n       - mouse speed multiplier, decimal, 0.2-3.0 (default: 1.0, e.g. SPEED=2 or SPEED=1.5)");
         Print("  DELTAMAX=n    - startup glitch filter, pixels (default: 80)");
         Print("  CURVELINEAR=n - acceleration curve linear threshold, decimal (default: 2.0)");

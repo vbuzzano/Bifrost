@@ -13,5 +13,8 @@
     "enabled": false,
     "log_mouse": false,
     "log_keys": false
+  },
+  "systray": {
+    "enabled": true
   }
 }

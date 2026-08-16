@@ -105,7 +105,7 @@ Bifrost ?                     # Print full usage/help
 
 **Edge Options:** `TOP`, `BOTTOM`, `LEFT`, `RIGHT`, `TOPLEFT`, `TOPRIGHT`, `BOTTOMLEFT`, `BOTTOMRIGHT`
 
-**Mouse Tuning (`KEY=VALUE`):** `HZ=n` poll rate (default 50) · `HZDRAG=n` poll rate while dragging (default 15) · `SPEED=n` speed, 0.2-3.0 (default 1.0) · `DELTAMAX=n` startup glitch filter (default 80) · `CURVELINEAR=n`/`CURVERATIO=n` acceleration curve shape (defaults 2.0/0.5).
+**Mouse Tuning (`KEY=VALUE`):** `HZ=n` poll rate (default 50) · `HZDRAG=n` poll rate while dragging (default: same as HZ) · `SPEED=n` speed, 0.2-3.0 (default 1.0) · `DELTAMAX=n` startup glitch filter (default 80) · `CURVELINEAR=n`/`CURVERATIO=n` acceleration curve shape (defaults 2.0/0.5).
 
 **STATUS / STOP:** Talk to the already-running daemon instead of launching a new one - useful for scripts. Running `Bifrost` again while already active updates its settings live instead of starting a duplicate. Use `STOP` first to actually stop it, or `STATUS` to check.
 
@@ -195,13 +195,11 @@ Updates every 0.5 seconds to reflect connection state changes in real-time.
 **Example (default: linear=2.0, ratio=0.5):**
 - 1px → 1px, 2px → 2px, 3px → 2.5px, 4px → 3px, 10px → 6px
 
-### Why MOUSE_HZ_DRAG?
+### Why HZDRAG?
 
-**Only relevant for apps using opaque drag (MCP — Move/Copy/Paste window).**
+**Defaults to the same rate as `HZ`** - most apps use transparent drag or no drag visual at all, where a lower rate during drag has no benefit, only added lag.
 
-If an app uses opaque drag (Workbench, file managers), each mouse event forces a full-screen redraw. Lower send rate during drag prevents overwhelming the Amiga.
-
-If an app uses transparent drag or no drag visual, set `hz_drag = hz` — no lag, no benefit to lowering.
+**Only lower it for apps using opaque drag** (MCP — Move/Copy/Paste window, e.g. Workbench, file managers): each mouse event forces a full-screen redraw there, so a lower send rate during drag prevents overwhelming the Amiga. Set `HZDRAG=n` explicitly (lower than `HZ`) to opt into that behavior.
 
 ## Testing & Validation
 

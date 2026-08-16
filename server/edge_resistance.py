@@ -119,6 +119,30 @@ def _detect_edge_hits(x, y, w, h, edge_mask):
     return hit_h | hit_v
 
 
+def _at_hard_boundary(hits, x, y, w, h):
+    """True once the position is pinned at the actual boundary pixel for
+    every axis in `hits` - not just within EDGE_TOLERANCE.
+
+    A real OS cursor clamps here: it physically cannot report a coordinate
+    past 0 or w-1/h-1, so once it's there, _push_delta's dx<0/dx>0 check
+    can never be satisfied again for that axis - there is no more negative
+    left to give. Reaching the true boundary is itself the strongest
+    possible "push" signal, stronger than any measurable delta."""
+    ok_h = not (hits & (EDGE_LEFT | EDGE_RIGHT))
+    if hits & EDGE_LEFT:
+        ok_h = x <= 0
+    elif hits & EDGE_RIGHT:
+        ok_h = x >= w - 1
+
+    ok_v = not (hits & (EDGE_TOP | EDGE_BOTTOM))
+    if hits & EDGE_TOP:
+        ok_v = y <= 0
+    elif hits & EDGE_BOTTOM:
+        ok_v = y >= h - 1
+
+    return ok_h and ok_v
+
+
 def _push_delta(hits, dx, dy):
     """Coherent push magnitude in the direction of `hits`, or 0 if the
     push direction doesn't match (or, at a corner, is ambiguous)."""
@@ -152,6 +176,10 @@ class EdgeResistance:
         self._clock = clock
         self._state = _STATE_NONE
         self._state_since = 0.0
+        # Coherent push distance accumulated across events since entering
+        # ACTIVE - see the MIN_PUSH_DELTA check below for why this can't be
+        # a single-event check.
+        self._push_accum = 0
 
     def update(self, x, y, dx, dy, w, h, edge_mask):
         if edge_mask == EDGE_NONE:
@@ -174,18 +202,42 @@ class EdgeResistance:
         if self._state == _STATE_STARTED:
             if now - self._state_since >= PUSH_TIMEOUT_S:
                 self._state = _STATE_ACTIVE
+                self._push_accum = 0
             return False
 
         if self._state == _STATE_ACTIVE:
-            if hits != EDGE_NONE and _push_delta(hits, dx, dy) >= MIN_PUSH_DELTA:
+            # A straight edge (not a corner - see _at_hard_boundary) pinned
+            # at the real screen boundary fires immediately: the OS cursor
+            # can't move further that way, so it would otherwise never be
+            # able to satisfy the push-delta check below at all (dx/dy
+            # stuck at 0 for that axis forever). Corners are excluded here -
+            # they need direction purity, not just proximity, to avoid
+            # firing off mere incidental dwelling at the pixel corner (see
+            # test_corner_does_not_fire_on_ambiguous_single_axis_push).
+            is_corner = bool((hits & (EDGE_LEFT | EDGE_RIGHT)) and (hits & (EDGE_TOP | EDGE_BOTTOM)))
+            if not is_corner and _at_hard_boundary(hits, x, y, w, h):
                 self._state = _STATE_COOLDOWN
                 self._state_since = now
+                self._push_accum = 0
+                return True
+
+            # Accumulated, not a single-event check: a real push can arrive
+            # as many small deltas instead of one big one (e.g. a
+            # high-report-rate mouse, or mouse motion relayed through VNC),
+            # each individually under MIN_PUSH_DELTA. Requiring the full
+            # push in one event made those setups unable to ever trigger.
+            self._push_accum += _push_delta(hits, dx, dy)
+            if self._push_accum >= MIN_PUSH_DELTA:
+                self._state = _STATE_COOLDOWN
+                self._state_since = now
+                self._push_accum = 0
                 return True
             return False
 
         if self._state == _STATE_COOLDOWN:
             if now - self._state_since >= COOLDOWN_S:
                 self._state = _STATE_ACTIVE
+                self._push_accum = 0
             return False
 
         return False

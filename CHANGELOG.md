@@ -12,6 +12,13 @@ All notable changes to Bifrost are documented in this file.
   port itself is now fixed (7891), independent of the TCP port, so it
   stays reachable regardless. Completes Phase 2 of the roadmap.
 
+### Changed
+- `HZDRAG` now defaults to the same rate as `HZ` instead of a fixed 15 -
+  the lower default only helped apps using opaque drag (MCP-style, e.g.
+  Workbench icon dragging), which most software doesn't use, so
+  throttling drag by default made things worse for the common case. Pass
+  `HZDRAG=n` explicitly to opt into a lower rate for opaque-drag apps.
+
 ### Removed
 - The Amiga-side TCP port CLI argument (`Bifrost <port>`) and the `port`
   field of the `BifrostConfig` IPC struct (`GET_CONFIG`/`SET_CONFIG`) - the

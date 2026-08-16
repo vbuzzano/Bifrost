@@ -164,7 +164,7 @@ keywords.
 @{b}Mouse Tuning (KEY=VALUE)@{ub}
 
   HZ=n          - mouse poll rate, Hz (default: 50)
-  HZDRAG=n      - mouse poll rate while dragging, Hz (default: 15, clamped <= HZ)
+  HZDRAG=n      - mouse poll rate while dragging, Hz (default: same as HZ, clamped <= HZ)
   SPEED=n       - mouse speed multiplier, 0.2-3.0 (default: 1.0, e.g. SPEED=1.5)
   DELTAMAX=n    - startup glitch filter, pixels (default: 80)
   CURVELINEAR=n - acceleration curve linear threshold (default: 2.0)

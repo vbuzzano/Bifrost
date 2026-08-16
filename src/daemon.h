@@ -105,9 +105,9 @@
 
 extern UBYTE s_pcEdge;     // PC-side edge/corner that switches focus to Amiga
 extern UBYTE s_amigaEdge;  // Amiga-side mirror of s_pcEdge (switches back to PC)
-extern BOOL  s_capslockEnabled; // FALSE via CLI "NOCAPSLOCK" - default TRUE
+extern UBYTE s_capslockMode;    // CAPSLOCK_OFF/ON/AUTO, CLI CAPSLOCK=NO|YES|AUTO - default CAPSLOCK_AUTO
 extern UBYTE s_mouseHz;         // default 50, CLI HZ=n
-extern UBYTE s_mouseHzDrag;     // default 15, CLI HZDRAG=n
+extern UBYTE s_mouseHzDrag;     // defaults to s_mouseHz, CLI HZDRAG=n
 extern UBYTE s_mouseSpeed;      // default 10 (1.0 x10), CLI SPEED=n
 extern UBYTE s_mouseDeltaMax;   // default 80, CLI DELTAMAX=n
 extern UBYTE s_curveLinear;     // default 20 (2.0 x10), CLI CURVELINEAR=n

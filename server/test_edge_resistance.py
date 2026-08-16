@@ -45,19 +45,44 @@ def test_straight_edge_fires_after_resistance_and_push():
 
 
 def test_insufficient_push_delta_does_not_fire():
+    """x=5: inside EDGE_TOLERANCE but deliberately not at the exact boundary
+    pixel (x=0), so this exercises the accumulated-push check rather than
+    the hard-boundary fast path (see test_hard_boundary_fires_immediately)."""
     clock = [0.0]
     r = er.EdgeResistance(clock=lambda: clock[0])
     mask = er.EDGE_LEFT
 
-    r.update(x=0, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)
+    r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)
     clock[0] += er.PUSH_TIMEOUT_S + 0.01
-    r.update(x=0, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)  # -> ACTIVE
+    r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)  # -> ACTIVE
 
-    fired = r.update(x=0, y=300, dx=-(er.MIN_PUSH_DELTA - 1), dy=0, w=1000, h=1000, edge_mask=mask)
+    fired = r.update(x=5, y=300, dx=-(er.MIN_PUSH_DELTA - 1), dy=0, w=1000, h=1000, edge_mask=mask)
     assert fired is False
 
 
 def test_wrong_direction_push_does_not_fire():
+    """x=5, not the exact boundary pixel - see test_insufficient_push_delta_does_not_fire."""
+    clock = [0.0]
+    r = er.EdgeResistance(clock=lambda: clock[0])
+    mask = er.EDGE_LEFT
+
+    r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)
+    clock[0] += er.PUSH_TIMEOUT_S + 0.01
+    r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)  # -> ACTIVE
+
+    # Pushing right (away from the left edge) must never fire
+    fired = r.update(x=5, y=300, dx=er.MIN_PUSH_DELTA + 5, dy=0, w=1000, h=1000, edge_mask=mask)
+    assert fired is False
+
+
+def test_hard_boundary_fires_immediately_even_with_zero_delta():
+    """Regression: a real OS cursor clamps at the true screen boundary (x
+    can't go below 0). Once resting there, dx is structurally 0 forever
+    after - _push_delta's dx<0 check can never be satisfied again, so the
+    old logic could never fire once the cursor had actually reached the
+    edge and stopped there, no matter how long/hard the user kept pushing.
+    Reported from real-world testing: touching the left edge and pushing
+    left did nothing at all."""
     clock = [0.0]
     r = er.EdgeResistance(clock=lambda: clock[0])
     mask = er.EDGE_LEFT
@@ -66,8 +91,22 @@ def test_wrong_direction_push_does_not_fire():
     clock[0] += er.PUSH_TIMEOUT_S + 0.01
     r.update(x=0, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)  # -> ACTIVE
 
-    # Pushing right (away from the left edge) must never fire
-    fired = r.update(x=0, y=300, dx=er.MIN_PUSH_DELTA + 5, dy=0, w=1000, h=1000, edge_mask=mask)
+    # Pinned at the exact boundary pixel, dx=0 (can't go any further left) -
+    # must still fire, not silently never trigger
+    fired = r.update(x=0, y=300, dx=0, dy=0, w=1000, h=1000, edge_mask=mask)
+    assert fired is True
+
+
+def test_hard_boundary_does_not_fire_before_active():
+    """The hard-boundary fast path must not bypass the STARTED->ACTIVE
+    resistance window - only skips the push-delta requirement, not the
+    dwell requirement."""
+    clock = [0.0]
+    r = er.EdgeResistance(clock=lambda: clock[0])
+    mask = er.EDGE_LEFT
+
+    # Enter the zone right at the boundary pixel - still just STARTED
+    fired = r.update(x=0, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)
     assert fired is False
 
 
@@ -190,6 +229,56 @@ def test_straight_edge_mask_still_fires_anywhere_along_that_edge():
     r.update(x=0, y=h - 1, dx=-1, dy=0, w=w, h=h, edge_mask=mask)  # -> ACTIVE
     fired = r.update(x=0, y=h - 1, dx=-(er.MIN_PUSH_DELTA), dy=0, w=w, h=h, edge_mask=mask)
     assert fired is True
+
+
+def test_many_small_pushes_below_threshold_accumulate_to_fire():
+    """Real-world regression: mouse motion relayed through VNC (or a
+    high-report-rate mouse) arrives as many small per-event deltas instead
+    of a few big ones. A single push of exactly MIN_PUSH_DELTA-1 must not
+    fire on its own (test_insufficient_push_delta_does_not_fire already
+    covers that) but a sustained run of them, each individually under the
+    threshold, must still add up and fire - the old single-event check
+    could never trigger in this situation at all.
+
+    x=5 (not the exact boundary pixel) so this exercises the accumulator,
+    not the hard-boundary fast path from test_hard_boundary_fires_immediately."""
+    clock = [0.0]
+    r = er.EdgeResistance(clock=lambda: clock[0])
+    mask = er.EDGE_LEFT
+
+    r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)
+    clock[0] += er.PUSH_TIMEOUT_S + 0.01
+    r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)  # -> ACTIVE
+
+    fired = False
+    for _ in range(20):
+        fired = r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)
+        if fired:
+            break
+    assert fired is True
+
+
+def test_small_pushes_interrupted_by_leaving_zone_do_not_carry_over():
+    """The accumulator must not let a later, unrelated brush against the
+    edge fire off leftover credit from an earlier gesture that never
+    completed (cursor left the zone in between). x=5, not the exact
+    boundary pixel - see test_many_small_pushes_below_threshold_accumulate_to_fire."""
+    clock = [0.0]
+    r = er.EdgeResistance(clock=lambda: clock[0])
+    mask = er.EDGE_LEFT
+
+    r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)
+    clock[0] += er.PUSH_TIMEOUT_S + 0.01
+    r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)  # -> ACTIVE
+    # Build up most of the way to the threshold, then leave the zone
+    for _ in range(4):
+        assert r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask) is False
+    r.update(x=500, y=300, dx=500, dy=0, w=1000, h=1000, edge_mask=mask)  # leaves zone -> NONE
+
+    # Back at the edge: must re-serve the resistance window, not fire on
+    # the first small push using leftover accumulation
+    fired = r.update(x=5, y=300, dx=-1, dy=0, w=1000, h=1000, edge_mask=mask)
+    assert fired is False
 
 
 def test_percent_along_edge_straight_edges():

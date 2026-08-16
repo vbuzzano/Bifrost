@@ -162,6 +162,20 @@ class _SystrayController:
         finally:
             self.stop_event.set()
             self.icon.stop()
+            # pystray's own setup/backend thread (the GTK/AppIndicator backend
+            # on Linux) is created without daemon=True, and run_detached()
+            # never pumps a GLib main loop for it to cleanly unwind in - it's
+            # only meant to integrate with a host app's own loop, which we
+            # don't have (our "loop" is srv.run()'s plain blocking accept()).
+            # icon.stop() above already waits up to 5s and logs a warning if
+            # that thread is still stuck; without a hard exit here, the
+            # interpreter then hangs in threading._shutdown() waiting to join
+            # it, needing a second Ctrl+C to actually quit. Everything that
+            # needs cleanup (sockets, the Amiga connection) is already closed
+            # by this point - see BifrostServer.run()'s own finally - so
+            # skipping the rest of Python's normal shutdown here is safe.
+            sys.stdout.flush()
+            os._exit(0)
 
 
 def _resolve_port(cli_port: 'int | None') -> int:
@@ -175,6 +189,19 @@ def _resolve_port(cli_port: 'int | None') -> int:
               f"(must be 1-65535) - using default 7890")
         return 7890
     return port
+
+
+def _resolve_systray_enabled(cli_no_systray: bool) -> bool:
+    """--no-systray always wins when passed; otherwise fall back to
+    systray.enabled from bifrost_config.json (True if unset/invalid)."""
+    if cli_no_systray:
+        return False
+    enabled = capture._CONFIG.get('systray', {}).get('enabled', True)
+    if not isinstance(enabled, bool):
+        print(f"[WARN] Invalid systray.enabled={enabled!r} in bifrost_config.json "
+              f"(must be true/false) - using default true")
+        return True
+    return enabled
 
 
 def main() -> None:
@@ -193,14 +220,30 @@ def main() -> None:
                    help='Listen address (default: 0.0.0.0 = all interfaces)')
     p.add_argument('--port', type=int, default=None,
                    help='TCP port (default: network.port from bifrost_config.json)')
+    p.add_argument('--no-systray', action='store_true',
+                   help='Disable the systray icon (default: systray.enabled from '
+                        'bifrost_config.json). Use this on setups with no working '
+                        'tray protocol (e.g. a bare Wayland compositor) where the '
+                        'systray backend errors out or has nothing to attach to.')
     args = p.parse_args()
 
     port = _resolve_port(args.port)
     srv = BifrostServer(host=args.host, port=port)
 
-    if HAS_SYSTRAY:
-        ctrl = _SystrayController(srv)
-        ctrl.run()
+    if HAS_SYSTRAY and _resolve_systray_enabled(args.no_systray):
+        try:
+            ctrl = _SystrayController(srv)
+            ctrl.run()
+        except Exception as e:
+            # Systray backend selection/init (pystray.Icon()/run_detached()) can fail
+            # at runtime on Linux setups with no working tray protocol (e.g. a bare
+            # Wayland compositor with no StatusNotifierWatcher) - this only guards
+            # against the import-time absence of pystray/Pillow, not that. Fall back
+            # to running without a systray rather than taking the whole server down;
+            # srv.run() itself hasn't been called yet in this path, so this is a
+            # clean handoff, not a double-start.
+            print(f'[WARN] Systray failed to start ({e}) - continuing without it')
+            srv.run()
     else:
         srv.run()
 

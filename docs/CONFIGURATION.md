@@ -150,6 +150,32 @@ the Amiga for the full list of arguments and their defaults. See
 
 ---
 
+## Systray Configuration
+
+### `systray.enabled` (Systray Icon)
+
+**Default:** `true`
+
+**What it does:** Master switch for the systray status icon (`pystray`). When `false`, the server runs without ever attempting to create a tray icon.
+
+```json
+{
+  "systray": {
+    "enabled": false
+  }
+}
+```
+
+- `--no-systray` on the command line always overrides `systray.enabled`, for one-off runs without touching the config
+- Invalid values (not `true`/`false`) fall back to `true` with a console warning
+- If the systray backend fails to start at runtime (e.g. no working tray protocol on a bare Wayland compositor), the server now logs a warning and continues without it instead of crashing - this setting is for skipping the attempt entirely, e.g. to keep the console clean or on setups where you already know it won't work
+
+**When to adjust:**
+- Headless/minimal Linux desktops with no tray protocol (no `StatusNotifierWatcher`, no AppIndicator host): `false`, or pass `--no-systray`
+- Diagnosing whether a startup issue is systray-related: `--no-systray` to rule it out
+
+---
+
 ## Troubleshooting via Configuration
 
 | Problem | Adjustment |

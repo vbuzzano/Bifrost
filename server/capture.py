@@ -9,11 +9,16 @@ Focus modes:
 Toggle: Scroll Lock key  |  Top-right corner -> Amiga mode
 
 Mouse strategy (Amiga mode):
-  suppress=True to swallow clicks.
-  Windows WH_MOUSE_LL does NOT prevent cursor movement when suppressed,
-  so we warp cursor to center after each delta via ctypes.SetCursorPos.
-  SetCursorPos does NOT re-trigger WH_MOUSE_LL (no loop, no _warping flag needed).
-  _last is always reset to _center so next delta is from center.
+  suppress=True to swallow clicks. Movement source differs by platform:
+  - Windows: raw hardware deltas via Raw Input (RawInputCapture), not
+    cursor position at all - see _on_raw_delta. Cursor is hidden
+    (ShowCursor(0)); it isn't read, so it doesn't matter where it sits.
+  - Linux: no raw-input equivalent, so cursor position deltas are used
+    instead (_on_move_amiga) - re-centered whenever near a real screen
+    edge so it never runs out of room to keep reporting movement (see
+    _RECENTER_MARGIN), and hidden via the XFixes extension
+    (_cursor_amiga_enter) since, unlike Windows, nothing else keeps it
+    off-screen/invisible on its own.
 
 Keyboard:
   suppress=True in Amiga mode (listener restarted on toggle).
@@ -49,7 +54,8 @@ def _load_config():
         'network': {'port': 7890},
         'keys': {'toggle': 'scroll_lock', 'emergency': 'pause', 'kill_modifier': 'ctrl',
                   'right_amiga': 'windows'},
-        'debug': {'enabled': False, 'log_mouse': False, 'log_keys': False}
+        'debug': {'enabled': False, 'log_mouse': False, 'log_keys': False},
+        'systray': {'enabled': True}
     }
 
     try:
@@ -241,16 +247,115 @@ if _IS_WIN:
 else:
     _mouse_ctrl_ref = [None]
 
+    # No separate hide/show calls on this platform - see
+    # _make_amiga_mouse_listener. A prior attempt used the XFixes
+    # extension's hide_cursor/show_cursor here; it genuinely hides the
+    # cursor at the X11 protocol level, confirmed by testing it in
+    # isolation, but reappears the instant the pointer moves - some
+    # compositors (this one included, almost certainly GNOME/mutter over
+    # XWayland) render their own cursor overlay on motion that doesn't
+    # consult XFixes' hidden bit, which is exactly the case that matters
+    # here (a KVM-style tool needs it hidden *while moving*, not just at
+    # rest). The grab's own cursor override, set below, changes what the
+    # compositor considers "the current cursor shape" - the same core
+    # mechanism every app relies on for cursor shape changes (I-beam over
+    # text, resize handles, etc.), which compositors can't afford to get
+    # wrong the way they can an optional legacy extension bit.
     def _cursor_amiga_enter():
         pass
 
     def _cursor_amiga_exit():
         pass
 
+    # Lazily-built fully-transparent 1x1 cursor, or False once confirmed
+    # unavailable (so we only try/warn once, not per focus switch). Keeps
+    # its OWN Xlib connection alive for the rest of the process (stored in
+    # _cursor_display[0]) - a previous attempt let this connection get
+    # garbage-collected right after creating the cursor, which silently
+    # closes the connection and makes the X server free every resource
+    # that client owned, including the cursor itself; pynput's (separate)
+    # connection then grabbed with a cursor ID that no longer existed,
+    # which failed the grab entirely - no exception, just a grab that
+    # never actually engaged, silencing mouse forwarding altogether.
+    _cursor_display = [None]
+    _invisible_cursor = [None]
+
+    def _get_invisible_cursor():
+        if _invisible_cursor[0] is None:
+            try:
+                from Xlib import display
+                d = display.Display()
+                root = d.screen().root
+                # Standard X11 "invisible cursor" recipe: a cursor's visible
+                # pixels are whatever the *mask* bitmap marks as set, so an
+                # all-zero 1x1 mask is see-through regardless of source
+                # content/colors - nothing to actually render.
+                pixmap = root.create_pixmap(1, 1, 1)
+                gc = pixmap.create_gc(foreground=0, background=0)
+                pixmap.fill_rectangle(gc, 0, 0, 1, 1)
+                cursor = pixmap.create_cursor(pixmap, (0, 0, 0), (0, 0, 0), 0, 0)
+                gc.free()
+                pixmap.free()
+                d.flush()
+                _cursor_display[0] = d   # keep alive - see docstring above
+                _invisible_cursor[0] = cursor
+            except Exception as e:
+                print(f'[WARN] Cursor hiding unavailable ({e}) - cursor stays '
+                      f'visible during Amiga focus')
+                _invisible_cursor[0] = False
+        return _invisible_cursor[0] or None
+
+    def _make_amiga_mouse_listener(on_move, on_click, on_scroll):
+        """pynput's own X11 grab (suppress=True) only requests
+        ButtonPress/ButtonReleaseMask for the grab, with cursor=0 (leave the
+        cursor image alone) - see _suppress_start in pynput/mouse/_xorg.py.
+        Motion isn't in that mask, so while clicks get redirected away from
+        the real desktop, mouse movement (hover, focus-follows-mouse, the
+        cursor itself) still reaches/shows on it completely normally.
+
+        Subclass to (1) widen the grabbed mask so motion is captured by the
+        same grab too, and (2) pass an invisible cursor for the grab's
+        duration - the override applies for as long as the grab is active
+        and reverts automatically on ungrab. The grab's status is checked
+        explicitly and logged if it fails, rather than trusting the absence
+        of a raised exception - GrabPointer always returns a reply even on
+        failure (e.g. a stale cursor ID), it doesn't raise. XRecord (the
+        separate mechanism that delivers move events to on_move) is
+        untouched by any of this."""
+        import Xlib.X
+        from pynput.mouse._xorg import Listener as _XorgMouseListener
+
+        cursor = _get_invisible_cursor()
+        cursor_id = cursor.id if cursor is not None else 0
+
+        class _SuppressingMouseListener(_XorgMouseListener):
+            @property
+            def _event_mask(self):
+                return super()._event_mask | Xlib.X.PointerMotionMask
+
+            def _suppress_start(self, display):
+                status = display.screen().root.grab_pointer(
+                    True,
+                    self._event_mask,
+                    Xlib.X.GrabModeAsync,
+                    Xlib.X.GrabModeAsync,
+                    0,
+                    cursor_id,
+                    Xlib.X.CurrentTime,
+                )
+                if status != Xlib.X.GrabSuccess:
+                    print(f'[WARN] Pointer grab failed (status={status}) - '
+                          f'clicks/movement may leak to the PC during Amiga focus')
+
+        return _SuppressingMouseListener(on_move=on_move, on_click=on_click,
+                                          on_scroll=on_scroll, suppress=True)
+
 
 def _set_cursor_pos(x, y):
     if _IS_WIN:
         ctypes.windll.user32.SetCursorPos(x, y)
+    elif _mouse_ctrl_ref[0] is not None:
+        _mouse_ctrl_ref[0].position = (x, y)
 
 
 def _get_pc_capslock_state() -> bool:
@@ -515,13 +620,27 @@ def _on_click_pc(x, y, button, pressed):
     _pc_btn_held = pressed
 
 # ---------------------------------------------------------------------------
-# Mouse handlers - Amiga mode
+# Mouse handlers - Amiga mode (non-Windows only - Windows uses raw hardware
+# deltas via RawInputCapture instead, on_move=None, see _do_set_focus)
 #
-# suppress=False: cursor moves on PC screen (SetCursorPos is unreliable).
-# We simply track the actual cursor position (_last = x, y) so deltas are
-# always the true 1:1 physical movement. No warp needed.
+# suppress=True moves/confines the real cursor on the real screen (there is
+# no non-Windows equivalent of Windows' Raw Input hardware deltas), which
+# means it's subject to the real screen's edges - a push that entered Amiga
+# focus at the left edge (x=0) has nowhere further left to go, silently
+# zeroing every subsequent leftward delta for as long as the gesture
+# continues. So: warp back to screen center whenever the real cursor gets
+# close to an edge, same idea as the Windows docstring's warp-to-center note
+# above, just ported here since this path actually reads cursor position
+# (Windows' raw-delta path doesn't and never needed it). Only warping near
+# an edge - not after every single delta - matters: each warp is a real X11
+# round trip, and doing one per event was visibly janky/stuttery. _last is
+# set to center BEFORE the warp so the synthetic on_move event the warp
+# itself generates resolves to a 0,0 delta instead of corrupting the next
+# real one.
 # DELTA_MAX filters the one large startup artefact (cursor not at _last yet).
 # ---------------------------------------------------------------------------
+
+_RECENTER_MARGIN = 100  # px from any screen edge - re-center before the real cursor could clamp there
 
 def _on_move_amiga(x, y):
     global _last_x, _last_y, _acc_dx, _acc_dy, _acc_qual
@@ -532,7 +651,14 @@ def _on_move_amiga(x, y):
 
     dx = x - _last_x
     dy = y - _last_y
-    _last_x, _last_y = x, y          # track actual cursor position - no warp
+
+    near_edge = (x <= _RECENTER_MARGIN or x >= _screen_w - 1 - _RECENTER_MARGIN or
+                 y <= _RECENTER_MARGIN or y >= _screen_h - 1 - _RECENTER_MARGIN)
+    if near_edge:
+        _last_x, _last_y = _center_x, _center_y   # re-center before the warp - see docstring above
+        _set_cursor_pos(_center_x, _center_y)
+    else:
+        _last_x, _last_y = x, y
 
     # Discard startup artefact: first event after focus switch has large delta
     # because _last was set to center while cursor was elsewhere.
@@ -713,10 +839,7 @@ def _do_set_focus(new_focus, entry_percent=None):
                 suppress=True,
             )
         else:
-            new_ml = mouse.Listener(on_move=_on_move_amiga,
-                                     on_click=_on_click_amiga,
-                                     on_scroll=_on_scroll,
-                                     suppress=False)
+            new_ml = _make_amiga_mouse_listener(_on_move_amiga, _on_click_amiga, _on_scroll)
         kb_suppress = True
         label = 'AMIGA  (Scroll Lock / Pause to release)'
         if entry_percent is not None and _send_fn:

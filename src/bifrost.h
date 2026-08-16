@@ -44,6 +44,17 @@
 #define EDGE_LEFT       0x04
 #define EDGE_RIGHT      0x08
 
+// Capslock qualifier forwarding mode (CLI CAPSLOCK=NO|YES|AUTO, see main.c)
+#define CAPSLOCK_OFF    0   // never forward it - typed case ignores PC Capslock
+#define CAPSLOCK_ON     1   // always forward it, exactly like a real keyboard -
+                             // can break Ctrl/Alt/Amiga hotkey combos system-wide
+                             // while Capslock is engaged (AmigaOS qualifier-match
+                             // behavior, confirmed on real hardware, not a
+                             // Bifrost bug - see ROADMAP.md's Decision Log)
+#define CAPSLOCK_AUTO   2   // default - forward it for letter case, but suppress
+                             // it while Ctrl/Alt/Amiga is also held so hotkeys
+                             // keep working
+
 // Configurable daemon state. GET_CONFIG copies the daemon's current values
 // into this; SET_CONFIG's setConfig() (daemon.c) applies every field. New
 // settings land here, not as new BMSG_CMD_* values or new CLI arguments -
@@ -52,10 +63,11 @@ struct BifrostConfig
 {
     UBYTE pcEdge;      // live-updatable
     BOOL  clientEnabled;   // live-updatable
-    BOOL  capslockEnabled; // live-updatable; also settable via CLI NOCAPSLOCK
-                           // (see main.c) - default TRUE
+    UBYTE capslockMode;    // live-updatable; CAPSLOCK_OFF/ON/AUTO; also
+                           // settable via CLI CAPSLOCK=NO|YES|AUTO (see
+                           // main.c) - default CAPSLOCK_AUTO
     UBYTE mouseHz;         // live-updatable; also settable via CLI HZ=n - default 50
-    UBYTE mouseHzDrag;     // live-updatable; also settable via CLI HZDRAG=n - default 15, clamped <= mouseHz
+    UBYTE mouseHzDrag;     // live-updatable; also settable via CLI HZDRAG=n - defaults to mouseHz, clamped <= mouseHz
     UBYTE mouseSpeed;      // live-updatable; x10 fixed-point; CLI SPEED=n - default 10 (1.0)
                            // clamped to 2-30 (0.2-3.0) by setConfig() - see daemon.c
     UBYTE mouseDeltaMax;   // live-updatable; also settable via CLI DELTAMAX=n - default 80
