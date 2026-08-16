@@ -19,6 +19,35 @@ All notable changes to Bifrost are documented in this file.
   throttling drag by default made things worse for the common case. Pass
   `HZDRAG=n` explicitly to opt into a lower rate for opaque-drag apps.
 
+### Added
+- `systray.enabled` config option to skip the systray icon entirely, e.g.
+  on headless Linux/Wayland setups with no tray protocol - `--no-systray`
+  is still available for one-off runs and always overrides it.
+
+### Fixed
+- Linux: the systray backend failing to start at runtime (e.g. no working
+  tray protocol on a bare Wayland compositor) no longer takes the whole
+  server down - it logs a warning and continues without the icon.
+- Linux: a startup failure in the server run loop (e.g. a permission error
+  opening `/dev/uinput`, or the TCP port already in use) no longer exits
+  silently with code 0 when running under the systray - the unconditional
+  hard exit needed to avoid hanging on pystray's non-daemon backend thread
+  was swallowing the exception; it's now logged and the process exits
+  non-zero.
+- Linux: fixed the mouse cursor becoming visible again unexpectedly during
+  Amiga focus - the `Xlib.display.Display()` connection backing the
+  XFixes invisible-cursor handle could get silently garbage-collected
+  while still in use.
+- Linux: the near-edge cursor re-center (keeps a drag from getting stuck
+  at a screen edge) only skipped mid-drag while the left button was held -
+  a right-button drag near an edge still triggered the warp and stuttered.
+- Edge-trigger: the cursor reaching a hard corner/edge boundary with zero
+  remaining delta could fail to fire (a real screen edge can't produce a
+  delta past itself, so the resistance check waiting for one never saw
+  it), and rapid small deltas below the push threshold (e.g. from a
+  high-report-rate/VNC mouse) were dropped instead of accumulating
+  toward it.
+
 ### Removed
 - The Amiga-side TCP port CLI argument (`Bifrost <port>`) and the `port`
   field of the `BifrostConfig` IPC struct (`GET_CONFIG`/`SET_CONFIG`) - the

@@ -2,7 +2,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import capture
-from protocol import PKT_HELLO
+from protocol import PKT_HELLO, QUAL_LBUTTON, QUAL_RBUTTON
 
 
 def _hello_bytes(edge=0, hz=50, hz_drag=15, delta_max=80, speed=10,
@@ -123,6 +123,25 @@ class TestOnMoveAmigaRecenter(unittest.TestCase):
         # _last tracks the real position, not a warp target, when no warp happened
         self.assertEqual(capture._last_x, capture._center_x - 2)
         self.assertEqual(capture._last_y, capture._center_y)
+
+    @patch('capture._set_cursor_pos')
+    def test_does_not_warp_while_dragging_near_an_edge(self, mock_set_pos):
+        # Regression: the drag-skip check used to only look at QUAL_LBUTTON,
+        # so a right-button drag near an edge still warped mid-gesture.
+        edge_x = capture._RECENTER_MARGIN - 3
+        for held in (QUAL_LBUTTON, QUAL_RBUTTON):
+            with self.subTest(held=held):
+                capture._last_x = None
+                capture._last_y = None
+                mock_set_pos.reset_mock()
+                capture._mouse_btns = held
+
+                capture._on_move_amiga(edge_x, 500)
+                capture._on_move_amiga(edge_x - 2, 500)
+
+                mock_set_pos.assert_not_called()
+                self.assertEqual(capture._last_x, edge_x - 2)
+                self.assertEqual(capture._last_y, 500)
 
     @patch('capture._set_cursor_pos')
     def test_synthetic_warp_echo_does_not_add_a_second_delta(self, mock_set_pos):

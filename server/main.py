@@ -19,6 +19,7 @@ import os
 import argparse
 import threading
 import time
+import traceback
 
 # Ensure imports from this directory work regardless of working directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -157,8 +158,20 @@ class _SystrayController:
         update_thread = threading.Thread(target=self._update_loop, daemon=True)
         update_thread.start()
 
+        exit_code = 0
         try:
             self.srv.run()
+        except KeyboardInterrupt:
+            pass
+        except BaseException:
+            # capture.start()/discovery.start()/srv.bind() run inside
+            # self.srv.run(), before its own try/except KeyboardInterrupt -
+            # a startup failure there (e.g. a Linux PermissionError opening
+            # /dev/uinput, or "address already in use") lands here. Without
+            # this, os._exit() below would discard the exception silently
+            # and report success (exit 0) to whatever launched us.
+            exit_code = 1
+            traceback.print_exc()
         finally:
             self.stop_event.set()
             self.icon.stop()
@@ -175,7 +188,8 @@ class _SystrayController:
             # by this point - see BifrostServer.run()'s own finally - so
             # skipping the rest of Python's normal shutdown here is safe.
             sys.stdout.flush()
-            os._exit(0)
+            sys.stderr.flush()
+            os._exit(exit_code)
 
 
 def _resolve_port(cli_port: 'int | None') -> int:

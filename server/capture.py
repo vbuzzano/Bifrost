@@ -662,7 +662,7 @@ def _on_move_amiga(x, y):
     # runs all the way into a real screen edge can still get stuck at
     # dx=0 until release, same as before this file's edge-recenter fix
     # existed - better than every near-edge drag stuttering.
-    if near_edge and not (_mouse_btns & QUAL_LBUTTON):
+    if near_edge and not (_mouse_btns & (QUAL_LBUTTON | QUAL_RBUTTON)):
         _last_x, _last_y = _center_x, _center_y   # re-center before the warp - see docstring above
         _set_cursor_pos(_center_x, _center_y)
     else:

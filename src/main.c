@@ -37,7 +37,10 @@ UBYTE s_pcEdge      = EDGE_NONE;
 UBYTE s_amigaEdge   = EDGE_NONE;
 BOOL  s_capslockEnabled = TRUE;  // FALSE via CLI "NOCAPSLOCK"
 UBYTE s_mouseHz         = 50;
-UBYTE s_mouseHzDrag     = 50;   // defaults to s_mouseHz - see parseArguments()
+UBYTE s_mouseHzDrag     = 50;   // just matches s_mouseHz's own initializer above -
+                                // the real "defaults to s_mouseHz" logic is the
+                                // fallback in parseArguments(), for when HZ=n is
+                                // typed without HZDRAG=n
 UBYTE s_mouseSpeed      = 10;   // x10 fixed-point: 1.0
 UBYTE s_mouseDeltaMax   = 80;
 UBYTE s_curveLinear     = 20;   // x10 fixed-point: 2.0
