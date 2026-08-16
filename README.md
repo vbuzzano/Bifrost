@@ -153,6 +153,8 @@ Updates every 0.5 seconds to reflect connection state changes in real-time.
 
 **Note:** Systray support requires `pystray` (installed via `pip install -r requirements.txt`). If not installed, the server runs normally without systray.
 
+**Headless/Wayland Linux:** pass `--no-systray`, or set `systray.enabled: false` in `bifrost_config.json`, to skip the tray icon entirely on setups with no working tray protocol (no `StatusNotifierWatcher`/AppIndicator host). If the systray backend fails to start on its own, the server now logs a warning and continues without it rather than crashing - see [docs/CONFIGURATION.md](docs/CONFIGURATION.md#systray-configuration).
+
 ## Known Limitations
 
 **Ctrl+Alt+Del cannot be captured.** While in Amiga focus mode, pressing Ctrl+Alt+Del on the PC still brings up Windows' secure screen (lock/task manager/sign out). This is a Windows security feature no application can override, so there's no fix on Bifrost's side.

@@ -11,6 +11,9 @@ All notable changes to Bifrost are documented in this file.
   on both sides when the PC's port isn't the default. The UDP discovery
   port itself is now fixed (7891), independent of the TCP port, so it
   stays reachable regardless. Completes Phase 2 of the roadmap.
+- `systray.enabled` config option to skip the systray icon entirely, e.g.
+  on headless Linux/Wayland setups with no tray protocol - `--no-systray`
+  is still available for one-off runs and always overrides it.
 
 ### Changed
 - `HZDRAG` now defaults to the same rate as `HZ` instead of a fixed 15 -
@@ -18,11 +21,6 @@ All notable changes to Bifrost are documented in this file.
   Workbench icon dragging), which most software doesn't use, so
   throttling drag by default made things worse for the common case. Pass
   `HZDRAG=n` explicitly to opt into a lower rate for opaque-drag apps.
-
-### Added
-- `systray.enabled` config option to skip the systray icon entirely, e.g.
-  on headless Linux/Wayland setups with no tray protocol - `--no-systray`
-  is still available for one-off runs and always overrides it.
 
 ### Fixed
 - Linux: the systray backend failing to start at runtime (e.g. no working

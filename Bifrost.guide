@@ -414,6 +414,17 @@ Requires Python 3 and the @{b}pynput@{ub} package on the PC.
 
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 
+@{b}No systray icon on Linux, or the PC server won't start@{ub}
+
+  On headless/minimal Linux desktops with no tray protocol (no
+  StatusNotifierWatcher, no AppIndicator host), the systray icon may fail
+  to start. This alone no longer crashes the server - it logs a warning
+  and continues without the icon. To skip the attempt entirely, pass
+  @{b}--no-systray@{ub} on the command line, or set @{b}systray.enabled:
+  false@{ub} in bifrost_config.json.
+
+@{fg highlight}------------------------------------------------------------------------------@{fg text}
+
 @{b}Wrong characters typed (keyboard layout mismatch)@{ub}
 
   Both PC and Amiga must be set to a US keyboard layout. Bifrost's key
