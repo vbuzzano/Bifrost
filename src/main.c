@@ -35,7 +35,7 @@ struct DosLibrary *DOSBase;
 // from CLI args, read by daemon() once launched via CreateNewProcTags.
 UBYTE s_pcEdge      = EDGE_NONE;
 UBYTE s_amigaEdge   = EDGE_NONE;
-UBYTE s_capslockMode    = CAPSLOCK_AUTO;  // CLI CAPSLOCK=NO|YES|AUTO
+BOOL  s_capslockEnabled = TRUE;  // FALSE via CLI "NOCAPSLOCK"
 UBYTE s_mouseHz         = 50;
 UBYTE s_mouseHzDrag     = 50;   // defaults to s_mouseHz - see parseArguments()
 UBYTE s_mouseSpeed      = 10;   // x10 fixed-point: 1.0
