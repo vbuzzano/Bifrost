@@ -654,7 +654,15 @@ def _on_move_amiga(x, y):
 
     near_edge = (x <= _RECENTER_MARGIN or x >= _screen_w - 1 - _RECENTER_MARGIN or
                  y <= _RECENTER_MARGIN or y >= _screen_h - 1 - _RECENTER_MARGIN)
-    if near_edge:
+    # Skip the warp while a button is held (dragging): it's a real X11
+    # round trip on the same thread that's feeding motion events, and doing
+    # one mid-drag was visibly janky - especially against an Amiga app
+    # using opaque drag, which redraws the whole screen on every event and
+    # has zero tolerance for an irregular one. Rare tradeoff: a drag that
+    # runs all the way into a real screen edge can still get stuck at
+    # dx=0 until release, same as before this file's edge-recenter fix
+    # existed - better than every near-edge drag stuttering.
+    if near_edge and not (_mouse_btns & QUAL_LBUTTON):
         _last_x, _last_y = _center_x, _center_y   # re-center before the warp - see docstring above
         _set_cursor_pos(_center_x, _center_y)
     else:
