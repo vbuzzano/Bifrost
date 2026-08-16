@@ -129,6 +129,17 @@ automatically.
 VERSION HISTORY
 
 
+0.6.1 (16.08.2026)
+
+Linux fixes: a startup failure (e.g. a permission error opening
+/dev/uinput, or the TCP port already in use) no longer exits silently
+with code 0 when running under the systray, the systray failing to start
+no longer takes the whole server down, the mouse cursor no longer
+becomes visible unexpectedly during Amiga focus, and right-button drags
+near a screen edge no longer stutter. Edge-trigger fix for hard
+corners/edges and rapid small deltas. Added systray.enabled config
+option to skip the systray icon entirely.
+
 0.6.0 (08.08.2026)
 
 Auto-negotiated TCP port: the PC embeds its actual TCP listening port in
