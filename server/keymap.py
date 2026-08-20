@@ -1,6 +1,6 @@
 """
 Bifrost keymap - PC key (pynput) -> Amiga rawkey code mapping.
-v~ 0.6.1 [PROGRAM_VERSION]~ (~ 16.08.2026 [PROGRAM_DATE]~)
+v~ 0.6.2 [PROGRAM_VERSION]~ (~ 21.08.2026 [PROGRAM_DATE]~)
 
 Amiga rawkey codes for US keyboard layout.
 All mapping is done on the server side so the Amiga client stays simple.

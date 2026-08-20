@@ -18,7 +18,7 @@ Bifrost enables seamless mouse and keyboard forwarding from a PC to a AmigaOs 3.
 ✅ **Auto-Discovery** - UDP broadcast — no IP or port configuration needed, even if the PC's port isn't the default  
 ✅ **Configurable** - Mouse tuning via Amiga CLI args, everything else via `bifrost_config.json` — no code edits  
 ✅ **Systray Status Icon** - Green icon when Amiga connected, grey when disconnected  
-✅ **Python Server** - Cross-platform PC side daemon (Windows/Linux/macOS)  
+✅ **Python Server** - Cross-platform PC side daemon (Windows/Linux; macOS starts but Amiga-focus forwarding isn't implemented yet - see Known Limitations)  
 
 ## Quick Start
 
@@ -105,7 +105,7 @@ Bifrost ?                     # Print full usage/help
 
 **Edge Options:** `TOP`, `BOTTOM`, `LEFT`, `RIGHT`, `TOPLEFT`, `TOPRIGHT`, `BOTTOMLEFT`, `BOTTOMRIGHT`
 
-**Mouse Tuning (`KEY=VALUE`):** `HZ=n` poll rate (default 50) · `HZDRAG=n` poll rate while dragging (default: same as HZ) · `SPEED=n` speed, 0.2-3.0 (default 1.0) · `DELTAMAX=n` startup glitch filter (default 80) · `CURVELINEAR=n`/`CURVERATIO=n` acceleration curve shape (defaults 2.0/0.5).
+**Mouse Tuning (`KEY=VALUE`):** `HZ=n` poll rate (default 50) · `HZDRAG=n` poll rate while dragging (default: same as HZ) · `SPEED=n` speed, 0.2-3.0 (default 1.0) · `DELTAMAX=n` max delta per mouse sample, pixels (default 80) - genuinely large samples are capped, not dropped · `CURVELINEAR=n`/`CURVERATIO=n` acceleration curve shape (defaults 2.0/0.5).
 
 **STATUS / STOP:** Talk to the already-running daemon instead of launching a new one - useful for scripts. Running `Bifrost` again while already active updates its settings live instead of starting a duplicate. Use `STOP` first to actually stop it, or `STATUS` to check.
 
@@ -156,6 +156,8 @@ Updates every 0.5 seconds to reflect connection state changes in real-time.
 **Headless/Wayland Linux:** pass `--no-systray`, or set `systray.enabled: false` in `bifrost_config.json`, to skip the tray icon entirely on setups with no working tray protocol (no `StatusNotifierWatcher`/AppIndicator host). If the systray backend fails to start on its own, the server now logs a warning and continues without it rather than crashing - see [docs/CONFIGURATION.md](docs/CONFIGURATION.md#systray-configuration).
 
 ## Known Limitations
+
+**macOS: Amiga-focus mouse/keyboard forwarding doesn't work yet.** The PC server starts and discovers the Amiga fine on macOS, but switching focus to the Amiga silently fails - the non-Windows mouse-capture path (`capture.py`) is built on Xlib/X11 internals (cursor hiding, edge recenter, pointer grab), which has no equivalent on macOS without a manually-installed XQuartz X server. Use Windows or Linux for now.
 
 **Ctrl+Alt+Del cannot be captured.** While in Amiga focus mode, pressing Ctrl+Alt+Del on the PC still brings up Windows' secure screen (lock/task manager/sign out). This is a Windows security feature no application can override, so there's no fix on Bifrost's side.
 

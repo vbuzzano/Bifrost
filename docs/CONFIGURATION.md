@@ -185,7 +185,7 @@ the Amiga for the full list of arguments and their defaults. See
 | Drag operations lag/flicker | Decrease Amiga's `HZDRAG=` CLI arg to 10-12 |
 | Can't hit small targets | Increase Amiga's `CURVELINEAR=` CLI arg to 30-40 (3.0-4.0) |
 | Overshoots too much | Decrease Amiga's `CURVERATIO=` CLI arg to 3-4 (0.3-0.4) |
-| Startup jumps/glitches | Increase Amiga's `DELTAMAX=` CLI arg to 120-150 |
+| Fast swipes feel capped/steppy (esp. on Linux) | Increase Amiga's `DELTAMAX=` CLI arg to 120-150 |
 | Amiga overloaded / CPU max | Decrease Amiga's `HZ=`/`HZDRAG=` CLI args by 10-15 each |
 | Console too noisy from mouse spam | Set `debug.log_mouse=false` (default) |
 | Console too noisy entirely | Set `debug.enabled=false` |

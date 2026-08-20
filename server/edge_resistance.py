@@ -1,6 +1,6 @@
 """
 Bifrost edge resistance state machine.
-v~ 0.6.1 [PROGRAM_VERSION]~ (~ 16.08.2026 [PROGRAM_DATE]~)
+v~ 0.6.2 [PROGRAM_VERSION]~ (~ 21.08.2026 [PROGRAM_DATE]~)
 
 Ported conceptually from MouseMaster's mod_edgewarp.c (EdgeWarp module):
 NONE -> STARTED -> ACTIVE -> COOLDOWN, requiring a short resistance

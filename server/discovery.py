@@ -1,6 +1,6 @@
 """
 Bifrost UDP broadcast discovery server.
-v~ 0.6.1 [PROGRAM_VERSION]~ (~ 16.08.2026 [PROGRAM_DATE]~)
+v~ 0.6.2 [PROGRAM_VERSION]~ (~ 21.08.2026 [PROGRAM_DATE]~)
 
 Broadcasts Bifrost_DISCOVER (with the TCP port appended) to the subnet
 broadcast address every 3 seconds so the Amiga client can find the server

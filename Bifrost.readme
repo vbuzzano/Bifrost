@@ -2,11 +2,11 @@ Short:         ~ Amiga Mouse & Keyboard Remote Controller [PROGRAM_DESC_SHORT]~
 Author:        reddoc007@gmail.com (Vincent Buzzano)
 Uploader:      reddoc007@gmail.com (Vincent Buzzano)
 Type:          comm/net
-Version:       ~ 0.6.1 [PROGRAM_VERSION]~
+Version:       ~ 0.6.2 [PROGRAM_VERSION]~
 Architecture:  m68k-amigaos
 Distribution:  Aminet
 
-                                 ~ Bifrost [PROGRAM_NAME]~ v~ 0.6.1 [PROGRAM_VERSION]~
+                                 ~ Bifrost [PROGRAM_NAME]~ v~ 0.6.2 [PROGRAM_VERSION]~
 
 -----------------------------------------------------------------------------
 
@@ -54,8 +54,10 @@ TCP/IP stack:
 
 Amiga side: only tested on AmigaOS 3.x hardware so far (AmigaOS 2.0+
 should work but is untested). PC server: Windows recommended
-(hardware-accurate mouse deltas); Linux/macOS supported on a
-best-effort basis.
+(hardware-accurate mouse deltas); Linux supported on a best-effort
+basis. macOS: the server starts and discovers the Amiga, but switching
+focus to send mouse/keyboard to the Amiga does not currently work -
+not yet implemented for this platform.
 
 == Does NOT Work On ==
 
@@ -128,6 +130,20 @@ automatically.
 
 VERSION HISTORY
 
+
+0.6.2 (21.08.2026)
+
+Linux fixes: screen size no longer falls back to a hardcoded 1920x1080
+default when the tkinter probe fails to start (e.g. python3-tk not
+installed) - it's now read directly via Xlib, so the near-edge cursor
+recenter and PC-side edge trigger are correctly calibrated on any
+resolution or multi-monitor setup. Dragging into a real screen edge no
+longer gets stuck there - the recenter warp is now non-blocking, so it no
+longer needs to be skipped mid-drag. Fast mouse movement no longer
+stutters or freezes - oversized samples are now capped instead of
+dropped, except for the one-time artifact right after a focus switch or
+edge recenter, which is still correctly discarded. Thanks to roarrrr for
+the Linux testing and feedback that helped track these down.
 
 0.6.1 (16.08.2026)
 

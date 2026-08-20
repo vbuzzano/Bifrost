@@ -1,6 +1,6 @@
 """
 Bifrost capture - global mouse/keyboard hooks with focus management.
-v~ 0.6.1 [PROGRAM_VERSION]~ (~ 16.08.2026 [PROGRAM_DATE]~)
+v~ 0.6.2 [PROGRAM_VERSION]~ (~ 21.08.2026 [PROGRAM_DATE]~)
 
 Focus modes:
   PC    - normal, input goes to PC only
@@ -183,12 +183,30 @@ def _get_screen_size():
     if _IS_WIN:
         u32 = ctypes.windll.user32
         return u32.GetSystemMetrics(0), u32.GetSystemMetrics(1)
+    # Query Xlib directly rather than tkinter: this is the exact same X
+    # screen/coordinate space that the XRecord motion events and the
+    # XTEST-based recenter warp (_recenter_cursor_fast) already operate in,
+    # so it can't disagree with them the way tkinter did - tkinter's
+    # winfo_screenwidth() silently fell through to the except branch on at
+    # least one real multi-monitor Linux box (likely python3-tk missing -
+    # it's an OS package, not something requirements.txt can pull in),
+    # landing on the hardcoded 1920x1080 fallback below even though the
+    # real combined screen was 3840 wide. That mismatch made the near-edge
+    # recenter threshold (_RECENTER_MARGIN) fire across roughly half the
+    # real desktop instead of only near the true edge - the root cause of
+    # both the periodic stutter and the drag getting stuck at the real
+    # (3840-wide) edge that _screen_w=1920 never accounted for.
     try:
-        import tkinter as tk
-        r = tk.Tk(); r.withdraw()
-        w, h = r.winfo_screenwidth(), r.winfo_screenheight()
-        r.destroy(); return w, h
-    except Exception:
+        from Xlib import display
+        d = display.Display()
+        scr = d.screen()
+        w, h = scr.width_in_pixels, scr.height_in_pixels
+        d.close()
+        return w, h
+    except Exception as e:
+        print(f'[WARN] Could not query X11 screen size ({e}) - falling back '
+              f'to 1920x1080. Edge detection and the near-edge recenter will '
+              f'be wrong if this is not your actual resolution.')
         return 1920, 1080
 
 
@@ -358,6 +376,36 @@ def _set_cursor_pos(x, y):
         _mouse_ctrl_ref[0].position = (x, y)
 
 
+if not _IS_WIN:
+    # Own persistent Xlib connection for the near-edge recenter warp in
+    # _on_move_amiga - kept alive for the same reason _cursor_display[0]
+    # above is (a connection garbage-collected mid-use silently closes and
+    # breaks the next call). Deliberately NOT routed through
+    # _set_cursor_pos()/pynput's Controller.position setter: that setter
+    # wraps XTEST fake_input in pynput._util.xorg.display_manager, which
+    # calls display.sync() on context exit - a blocking round trip to the
+    # X server. _on_move_amiga calls this directly from the XRecord
+    # handler thread that's also dispatching every subsequent motion
+    # event, so that sync() stalled the thread on every recenter; queued
+    # real motion events piled up behind it and landed in a burst right
+    # after - that burst is what showed up as periodic cursor jitter on
+    # the Amiga side. flush() (send, don't wait for a reply) keeps the
+    # warp but drops the wait, so recentering no longer blocks event
+    # dispatch - which also makes it safe to do mid-drag instead of
+    # skipping it (see _on_move_amiga), fixing the stuck-at-edge drag too.
+    _recenter_display = [None]
+
+    def _recenter_cursor_fast(x, y):
+        import Xlib.X
+        import Xlib.ext.xtest
+        if _recenter_display[0] is None:
+            from Xlib import display
+            _recenter_display[0] = display.Display()
+        d = _recenter_display[0]
+        Xlib.ext.xtest.fake_input(d, Xlib.X.MotionNotify, x=x, y=y)
+        d.flush()
+
+
 def _get_pc_capslock_state() -> bool:
     """Return True if PC Capslock is ON. Windows only."""
     if _IS_WIN:
@@ -401,6 +449,11 @@ _flush_rem_y = 0.0
 
 _last_x = None
 _last_y = None
+# Set only by the near-edge recenter in _on_move_amiga - marks that _last_x/_last_y
+# was just forced to _center_x/_center_y ahead of the real cursor actually getting
+# there, so the very next raw delta is a reference-mismatch artefact (not a real
+# movement) and must be discarded rather than clamped - see _on_move_amiga.
+_just_reset = False
 
 _ml      = None
 _ml_lock = threading.Lock()
@@ -632,18 +685,21 @@ def _on_click_pc(x, y, button, pressed):
 # close to an edge, same idea as the Windows docstring's warp-to-center note
 # above, just ported here since this path actually reads cursor position
 # (Windows' raw-delta path doesn't and never needed it). Only warping near
-# an edge - not after every single delta - matters: each warp is a real X11
-# round trip, and doing one per event was visibly janky/stuttery. _last is
-# set to center BEFORE the warp so the synthetic on_move event the warp
-# itself generates resolves to a 0,0 delta instead of corrupting the next
-# real one.
-# DELTA_MAX filters the one large startup artefact (cursor not at _last yet).
+# an edge - not after every single delta - matters, to keep the number of
+# warps down. _last is set to center BEFORE the warp so the synthetic
+# on_move event the warp itself generates resolves to a 0,0 delta instead
+# of corrupting the next real one. The warp itself goes through
+# _recenter_cursor_fast(), not _set_cursor_pos() - see that function's
+# docstring for why (blocking vs non-blocking X11 round trip); this also
+# means the warp no longer needs to be skipped while a button is held.
+# DELTA_MAX either discards a reference-mismatch artefact (see _just_reset) or
+# clamps a genuinely large delta - see the check below for which and why.
 # ---------------------------------------------------------------------------
 
 _RECENTER_MARGIN = 100  # px from any screen edge - re-center before the real cursor could clamp there
 
 def _on_move_amiga(x, y):
-    global _last_x, _last_y, _acc_dx, _acc_dy, _acc_qual
+    global _last_x, _last_y, _acc_dx, _acc_dy, _acc_qual, _just_reset
 
     if _last_x is None:
         _last_x, _last_y = x, y
@@ -654,27 +710,46 @@ def _on_move_amiga(x, y):
 
     near_edge = (x <= _RECENTER_MARGIN or x >= _screen_w - 1 - _RECENTER_MARGIN or
                  y <= _RECENTER_MARGIN or y >= _screen_h - 1 - _RECENTER_MARGIN)
-    # Skip the warp while a button is held (dragging): it's a real X11
-    # round trip on the same thread that's feeding motion events, and doing
-    # one mid-drag was visibly janky - especially against an Amiga app
-    # using opaque drag, which redraws the whole screen on every event and
-    # has zero tolerance for an irregular one. Rare tradeoff: a drag that
-    # runs all the way into a real screen edge can still get stuck at
-    # dx=0 until release, same as before this file's edge-recenter fix
-    # existed - better than every near-edge drag stuttering.
-    if near_edge and not (_mouse_btns & (QUAL_LBUTTON | QUAL_RBUTTON)):
+    # No longer skipped while a button is held (dragging) - _recenter_cursor_fast()
+    # doesn't block the event thread, so there's no jank tradeoff to avoid here
+    # anymore (see its docstring). Previously skipping this mid-drag is what let a
+    # drag that ran all the way into a real screen edge get stuck at dx=0 until
+    # release.
+    if near_edge:
         _last_x, _last_y = _center_x, _center_y   # re-center before the warp - see docstring above
-        _set_cursor_pos(_center_x, _center_y)
+        _recenter_cursor_fast(_center_x, _center_y)
+        _just_reset = True
     else:
         _last_x, _last_y = x, y
 
-    # Discard startup artefact: first event after focus switch has large delta
-    # because _last was set to center while cursor was elsewhere.
-    # After one discard, _last = x and all subsequent deltas are correct.
     if abs(dx) > DELTA_MAX or abs(dy) > DELTA_MAX:
+        if _just_reset:
+            # First raw delta after a recenter reset _last_x/_last_y ahead of the
+            # real (async) warp landing - dx/dy reflects that reference mismatch,
+            # not real movement, so it must be thrown away entirely rather than
+            # clamped (clamping would send one real-looking hop in a bogus
+            # direction every time the cursor recenters).
+            _just_reset = False
+            if LOG_MOUSE:
+                print(f'[mouse] DISCARD  pos=({x},{y}) dx={dx:+d} dy={dy:+d}  (>{DELTA_MAX}, reset)')
+            return
+        # Genuinely large delta from a fast real gesture (common on Linux, where
+        # this path tracks cursor *position* - already run through the desktop's
+        # own pointer-acceleration curve - rather than raw hardware deltas like
+        # the Windows path does, so a single sample can legitimately be much
+        # bigger here for the same physical hand movement). Clamp instead of
+        # dropping: DELTA_MAX only needs to guard against genuine teleports
+        # (the reset case above, ~1000+px) - discarding a merely-fast real
+        # gesture entirely made a fast drag visibly stutter/freeze instead of
+        # just moving at a capped top speed.
+        clamped_dx = max(-DELTA_MAX, min(DELTA_MAX, dx))
+        clamped_dy = max(-DELTA_MAX, min(DELTA_MAX, dy))
         if LOG_MOUSE:
-            print(f'[mouse] DISCARD  pos=({x},{y}) dx={dx:+d} dy={dy:+d}  (>{DELTA_MAX})')
-        return
+            print(f'[mouse] CLAMP    pos=({x},{y}) dx={dx:+d}->{clamped_dx:+d} '
+                  f'dy={dy:+d}->{clamped_dy:+d}  (>{DELTA_MAX})')
+        dx, dy = clamped_dx, clamped_dy
+    else:
+        _just_reset = False
 
     if LOG_MOUSE and (dx or dy):
         print(f'[mouse] event    pos=({x},{y}) dx={dx:+d} dy={dy:+d}')

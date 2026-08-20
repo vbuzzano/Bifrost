@@ -781,7 +781,7 @@ LONG _start(void)
         Print("  HZ=n          - mouse poll rate, Hz (default: 50)");
         Print("  HZDRAG=n      - mouse poll rate while dragging, Hz (default: same as HZ, clamped <= HZ)");
         Print("  SPEED=n       - mouse speed multiplier, decimal, 0.2-3.0 (default: 1.0, e.g. SPEED=2 or SPEED=1.5)");
-        Print("  DELTAMAX=n    - startup glitch filter, pixels (default: 80)");
+        Print("  DELTAMAX=n    - max mouse delta per sample, pixels (default: 80)");
         Print("  CURVELINEAR=n - acceleration curve linear threshold, decimal (default: 2.0)");
         Print("  CURVERATIO=n  - acceleration curve compression ratio, decimal (default: 0.5)");
         Print("                  (any KEY may be written as KEY=value or KEY value)");

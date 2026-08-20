@@ -1,12 +1,12 @@
 @database Bifrost.guide
 @author "Vincent Buzzano"
-@$VER: ~ 0.6.1 [PROGRAM_VERSION]~
+@$VER: ~ 0.6.2 [PROGRAM_VERSION]~
 
 @node main "Bifrost"
 @next serversetup
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
 @{fg highlight}
-                          @{b}Bifrost v~ 0.6.1 [PROGRAM_VERSION]~@{ub}
+                          @{b}Bifrost v~ 0.6.2 [PROGRAM_VERSION]~@{ub}
                     Mouse & Keyboard Sharing over the Network
 @{fg text}
 @{fg highlight}------------------------------------------------------------------------------@{fg text}
@@ -340,9 +340,12 @@ TCP/IP stack:
 
   - @{b}Windows@{ub}: full support, including hardware-accurate mouse deltas via
     the Raw Input API (recommended platform).
-  - @{b}Linux / macOS@{ub}: best-effort support via pynput; hardware Raw Input
-    deltas are not available on these platforms, so mouse feel may be
+  - @{b}Linux@{ub}: best-effort support via pynput; hardware Raw Input
+    deltas are not available on this platform, so mouse feel may be
     slightly less precise than on Windows.
+  - @{b}macOS@{ub}: the server starts and discovers the Amiga, but switching
+    focus to send mouse/keyboard to the Amiga does not currently work -
+    not yet implemented for this platform.
 
 Requires Python 3 and the @{b}pynput@{ub} package on the PC.
 
@@ -528,8 +531,8 @@ DEALINGS IN THE SOFTWARE.
 @{b}Credits@{ub}
 
   @{b}Author@{ub}:        Vincent Buzzano
-  @{b}Version@{ub}:       ~ 0.6.1 [PROGRAM_VERSION]~
-  @{b}Date@{ub}:          ~ 16.08.2026 [PROGRAM_DATE]~
+  @{b}Version@{ub}:       ~ 0.6.2 [PROGRAM_VERSION]~
+  @{b}Date@{ub}:          ~ 21.08.2026 [PROGRAM_DATE]~
   @{b}Toolchain@{ub}:     VBCC m68k-amigaos compiler (Amiga client), Python 3 (PC server)
 
 @{b}Special Thanks@{ub}:

@@ -2,6 +2,34 @@
 
 All notable changes to Bifrost are documented in this file.
 
+## [0.6.2] - 2026-08-21
+
+### Fixed
+- Linux: screen size fell back to a hardcoded 1920x1080 default whenever
+  the tkinter probe failed to initialize (e.g. `python3-tk` not
+  installed) - silently miscalibrating the near-edge cursor recenter and
+  the PC-side edge trigger on any other resolution or multi-monitor
+  setup. Now queried directly via Xlib instead (no tkinter dependency on
+  Linux at all), with an explicit warning logged if that also fails.
+- Linux: dragging into a real screen edge could get stuck there - the
+  near-edge recenter warped the cursor through a blocking X11 round trip
+  on the same thread dispatching mouse motion events, so it was skipped
+  entirely during a drag to avoid stuttering. The warp is now
+  non-blocking, so it no longer needs to be skipped mid-drag.
+- Linux: fast mouse movement could stutter or freeze - any raw sample
+  larger than `DELTAMAX` was discarded entirely (a filter meant for the
+  one-time reference-mismatch artifact right after a focus switch or edge
+  recenter), which also silently dropped genuinely fast movement - more
+  common on Linux, since it tracks the desktop's already-accelerated
+  cursor position rather than raw hardware deltas the way the Windows
+  path does. Oversized samples are now clamped to `DELTAMAX` instead of
+  dropped, except for that one reference-mismatch case, which is still
+  discarded correctly.
+
+### Changed
+- `DELTAMAX` is no longer strictly a "startup glitch filter" (see above)
+  - CLI help text and docs updated to match.
+
 ## [0.6.1] - 2026-08-16
 
 ### Added
