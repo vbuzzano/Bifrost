@@ -94,12 +94,12 @@ class TestOnMoveAmigaRecenter(unittest.TestCase):
         capture._qualifiers = 0
         capture._mouse_btns = 0
 
-    @patch('capture._set_cursor_pos')
-    def test_recenters_when_near_an_edge(self, mock_set_pos):
+    @patch('capture._recenter_cursor_fast')
+    def test_recenters_when_near_an_edge(self, mock_recenter):
         edge_x = capture._RECENTER_MARGIN - 3   # inside the margin, near the left edge
         # First call only seeds _last (no prior tracked position yet)
         capture._on_move_amiga(edge_x, 500)
-        mock_set_pos.assert_not_called()
+        mock_recenter.assert_not_called()
 
         # Real move, e.g. continuing left from a left-edge entry point
         capture._on_move_amiga(edge_x - 2, 500)
@@ -108,43 +108,47 @@ class TestOnMoveAmigaRecenter(unittest.TestCase):
         self.assertEqual(capture._acc_dy, 0)
         # Warped back to center instead of being left wherever the real
         # (edge-adjacent) cursor position was
-        mock_set_pos.assert_called_once_with(capture._center_x, capture._center_y)
+        mock_recenter.assert_called_once_with(capture._center_x, capture._center_y)
         self.assertEqual(capture._last_x, capture._center_x)
         self.assertEqual(capture._last_y, capture._center_y)
 
-    @patch('capture._set_cursor_pos')
-    def test_does_not_warp_when_nowhere_near_an_edge(self, mock_set_pos):
+    @patch('capture._recenter_cursor_fast')
+    def test_does_not_warp_when_nowhere_near_an_edge(self, mock_recenter):
         # Comfortably inside the screen, far from any edge
         capture._on_move_amiga(capture._center_x, capture._center_y)
         capture._on_move_amiga(capture._center_x - 2, capture._center_y)
 
         self.assertEqual(capture._acc_dx, -2)
-        mock_set_pos.assert_not_called()
+        mock_recenter.assert_not_called()
         # _last tracks the real position, not a warp target, when no warp happened
         self.assertEqual(capture._last_x, capture._center_x - 2)
         self.assertEqual(capture._last_y, capture._center_y)
 
-    @patch('capture._set_cursor_pos')
-    def test_does_not_warp_while_dragging_near_an_edge(self, mock_set_pos):
-        # Regression: the drag-skip check used to only look at QUAL_LBUTTON,
-        # so a right-button drag near an edge still warped mid-gesture.
+    @patch('capture._recenter_cursor_fast')
+    def test_still_warps_while_dragging_near_an_edge(self, mock_recenter):
+        # Regression: the warp used to be skipped entirely while a mouse
+        # button was held, to avoid the jank of a blocking X11 round trip
+        # mid-drag - which let a drag that ran into a real screen edge get
+        # stuck there at dx=0 until release. _recenter_cursor_fast() is
+        # non-blocking, so there's no jank tradeoff to avoid anymore, and
+        # the warp now fires during a drag same as any other move.
         edge_x = capture._RECENTER_MARGIN - 3
         for held in (QUAL_LBUTTON, QUAL_RBUTTON):
             with self.subTest(held=held):
                 capture._last_x = None
                 capture._last_y = None
-                mock_set_pos.reset_mock()
+                mock_recenter.reset_mock()
                 capture._mouse_btns = held
 
                 capture._on_move_amiga(edge_x, 500)
                 capture._on_move_amiga(edge_x - 2, 500)
 
-                mock_set_pos.assert_not_called()
-                self.assertEqual(capture._last_x, edge_x - 2)
-                self.assertEqual(capture._last_y, 500)
+                mock_recenter.assert_called_once_with(capture._center_x, capture._center_y)
+                self.assertEqual(capture._last_x, capture._center_x)
+                self.assertEqual(capture._last_y, capture._center_y)
 
-    @patch('capture._set_cursor_pos')
-    def test_synthetic_warp_echo_does_not_add_a_second_delta(self, mock_set_pos):
+    @patch('capture._recenter_cursor_fast')
+    def test_synthetic_warp_echo_does_not_add_a_second_delta(self, mock_recenter):
         edge_x = capture._RECENTER_MARGIN - 3
         capture._on_move_amiga(edge_x, 500)
         capture._on_move_amiga(edge_x - 2, 500)  # real move near the edge -> warps

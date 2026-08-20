@@ -404,6 +404,13 @@ if not _IS_WIN:
         d = _recenter_display[0]
         Xlib.ext.xtest.fake_input(d, Xlib.X.MotionNotify, x=x, y=y)
         d.flush()
+else:
+    # _on_move_amiga is never wired up as the Amiga-focus mouse callback on
+    # Windows (raw_input_win's RawInputCapture is used instead - see
+    # set_focus's _IS_WIN branch), so this is never actually called in
+    # production here. Defined anyway so the name exists to call/patch.
+    def _recenter_cursor_fast(x, y):
+        _set_cursor_pos(x, y)
 
 
 def _get_pc_capslock_state() -> bool:
