@@ -18,7 +18,7 @@
 // ---> BEGIN GENERATED PROGRAM_CONSTANTS
 #define PROGRAM_NAME "Bifrost"
 #define PROGRAM_VERSION "0.6.2"
-#define PROGRAM_DATE "21.08.2026"
+#define PROGRAM_DATE "24.08.2026"
 #define PROGRAM_AUTHOR "Vincent Buzzano"
 #define PROGRAM_DESC_SHORT "Amiga Mouse & Keyboard Remote Controller"
 // <--- END GENERATED PROGRAM CONSTANTS
